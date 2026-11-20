@@ -12,6 +12,7 @@
 #import "ModelStore.h"
 #import "UpdateManager.h"
 #import "UpdatePopupViewController.h"
+#import "DevAccess.h"
 
 #pragma mark - Font / Message Preview Screen
 
@@ -281,7 +282,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     NSIndexPath *path = [NSIndexPath indexPathForRow:2 inSection:SettingsSectionData];
     UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:path];
     if (cell) [self.tableView reloadRowsAtIndexPaths:@[path] withRowAnimation:UITableViewRowAnimationNone];
-    if ([UpdateManager shared].state == UpdateStateAvailable && self.view.window && !self.presentedViewController &&
+    if ([UpdateManager shared].state == UpdateStateAvailable && ![UpdateManager shared].devChannel && self.view.window && !self.presentedViewController &&
         self.navigationController.topViewController == self && [[UpdateManager shared] consumePromptForCurrentVersion]) {
         [self presentUpdatePopupChecking:NO];   // a new version was just found: tell the user once
     }
@@ -290,8 +291,68 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 - (void)presentUpdatePopupChecking:(BOOL)check {
     if (self.presentedViewController) return;
     UpdateManager *m = [UpdateManager shared];
-    if (check && (m.state == UpdateStateIdle || m.state == UpdateStateFailed || m.state == UpdateStateUpToDate)) [m checkForUpdateForce:YES];
+    if (check && !m.devChannel && (m.state == UpdateStateIdle || m.state == UpdateStateFailed || m.state == UpdateStateUpToDate)) [m checkForUpdateForce:YES];
     [self presentViewController:[[UpdatePopupViewController alloc] init] animated:YES completion:nil];
+}
+
+#pragma mark - Developer updates (password protected)
+
+- (void)presentDevPasswordPrompt {
+    if (self.presentedViewController) return;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"dev_prompt_title") message:L(@"dev_prompt_msg") preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.placeholder = L(@"dev_prompt_placeholder");
+        field.secureTextEntry = YES;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        field.autocorrectionType = UITextAutocorrectionTypeNo;
+        field.spellCheckingType = UITextSpellCheckTypeNo;
+        field.keyboardType = UIKeyboardTypeASCIICapable;
+        field.returnKeyType = UIReturnKeyDone;
+    }];
+    __weak typeof(self) weakSelf = self;
+    __weak UIAlertController *weakAlert = alert;
+    [alert addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:L(@"dev_prompt_ok") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        UITextField *field = weakAlert.textFields.firstObject;
+        NSString *typed = [field.text copy];
+        field.text = @"";   // do not keep the password in the field
+        [weakSelf submitDevPassword:typed];
+    }]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)submitDevPassword:(NSString *)password {
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    spinner.color = [Theme secondaryText];
+    spinner.center = CGPointMake(self.view.bounds.size.width / 2.0, self.view.bounds.size.height / 2.0);
+    [self.view addSubview:spinner];
+    [spinner startAnimating];
+    self.view.userInteractionEnabled = NO;
+    __weak typeof(self) weakSelf = self;
+    [[DevAccess shared] unlockWithPassword:password completion:^(DevAccessResult result, NSTimeInterval wait) {
+        [spinner removeFromSuperview];
+        SettingsViewController *me = weakSelf;
+        if (!me) return;
+        me.view.userInteractionEnabled = YES;
+        if (result == DevAccessResultOK) {
+            [[UpdateManager shared] switchToDevChannel:YES];
+            [me presentUpdatePopupChecking:YES];
+            return;
+        }
+        NSString *message;
+        if (result == DevAccessResultLockedOut) {
+            NSInteger secs = (NSInteger)ceil(wait);
+            NSString *time = secs >= 120 ? [NSString stringWithFormat:L(@"dev_minutes"), (long)((secs + 59) / 60)] : [NSString stringWithFormat:L(@"dev_seconds"), (long)MAX(secs, 1)];
+            message = [NSString stringWithFormat:L(@"dev_err_lockout"), time];
+        } else if (result == DevAccessResultBusy) {
+            message = L(@"dev_err_busy");
+        } else {
+            message = L(@"dev_err_wrong");
+        }
+        UIAlertController *fail = [UIAlertController alertControllerWithTitle:L(@"dev_prompt_title") message:message preferredStyle:UIAlertControllerStyleAlert];
+        [fail addAction:[UIAlertAction actionWithTitle:L(@"update_close") style:UIAlertActionStyleCancel handler:nil]];
+        if (!me.presentedViewController) [me presentViewController:fail animated:YES completion:nil];
+    }];
 }
 
 - (void)dealloc {
@@ -362,7 +423,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     if (section == SettingsSectionKeys) return 3;      // Gemini key, Claude key, kind of Gemini key
     if (section == SettingsSectionAssistant) return 4;
     if (section == SettingsSectionCredits) return 3;   // TaoJB, PucSaur, ND Phonqq
-    return 4;   // data: clear history, version, app update, diagnostics
+    return 5;   // data: clear history, version, app update, developer updates, diagnostics
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -469,6 +530,10 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
                 }
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                 }
+            } else if (indexPath.row == 3) {
+                cell.textLabel.text = L(@"dev_row_title");
+                cell.detailTextLabel.text = L(@"dev_row_detail");
+                cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             } else {
                 cell.textLabel.text = L(@"diagnostics_title");
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -528,8 +593,11 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
             if (indexPath.row == 0) {
                 [self confirmClearHistory];
             } else if (indexPath.row == 2) {
+                [[UpdateManager shared] switchToDevChannel:NO];
                 [self presentUpdatePopupChecking:YES];
             } else if (indexPath.row == 3) {
+                [self presentDevPasswordPrompt];
+            } else if (indexPath.row == 4) {
                 [self.navigationController pushViewController:[[DiagnosticsViewController alloc] init] animated:YES];
             }
             break;

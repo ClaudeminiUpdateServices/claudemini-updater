@@ -268,3 +268,19 @@
 "update_err_corrupt" = "The downloaded file is not valid. Please try again.";
 "update_err_save" = "Could not save the file";
 "manual_tester" = "Manual Tester";
+
+/* Developer updates */
+"dev_row_title" = "Developer updates";
+"dev_row_detail" = "Password required";
+"dev_prompt_title" = "Developer area";
+"dev_prompt_msg" = "Enter the developer password to see test builds.";
+"dev_prompt_placeholder" = "Password";
+"dev_prompt_ok" = "Unlock";
+"dev_badge" = "Developer channel: test builds, may be unstable.";
+"dev_err_wrong" = "Wrong password.";
+"dev_err_busy" = "Checking, please wait.";
+"dev_err_lockout" = "Too many wrong attempts. Try again in %@.";
+"dev_seconds" = "%ld seconds";
+"dev_minutes" = "%ld minutes";
+"dev_err_locked" = "The developer session is locked. Enter the password again.";
+"dev_err_decrypt" = "The build could not be decrypted (wrong key or modified file).";

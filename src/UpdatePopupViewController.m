@@ -223,6 +223,7 @@ static NSString *SizeText(long long bytes) {
             primary = L(@"update_close");
             break;
     }
+    if (m.devChannel) message = [NSString stringWithFormat:@"%@\n\n%@", L(@"dev_badge"), message ?: @""];
     self.titleLabel.text = title;
     self.messageLabel.text = message;
     [self.primaryButton setTitle:primary forState:UIControlStateNormal];
@@ -319,7 +320,8 @@ static NSString *SizeText(long long bytes) {
 }
 
 - (void)closeTapped {
-    [self dismissViewControllerAnimated:YES completion:nil];
+    // Leaving the screen also leaves the developer channel: the decrypted build is removed and the normal state is back.
+    [self dismissViewControllerAnimated:YES completion:^{ [[UpdateManager shared] switchToDevChannel:NO]; }];
 }
 
 - (void)checkAgainTapped {

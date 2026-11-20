@@ -2,7 +2,7 @@ name: Build ClaudeMini (deb + ipa)
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     tags: ['v*']
     paths-ignore:
       - '**.md'
@@ -96,7 +96,7 @@ jobs:
       # Every push to main (and every v* tag) becomes a GitHub release that holds the .deb and the .ipa.
       # The app's "Update" screen reads these releases: tag v<VERSION>-b<run number> for pushes, the tag itself for tags.
       - name: Publish .deb and .ipa to a GitHub release
-        if: github.event_name == 'push' || env.TAG != ''
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || env.TAG != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -114,6 +114,37 @@ jobs:
           fi
           gh release upload "$REL" dist/*.deb dist/*.ipa --clobber
           # keep only the 10 newest automatic builds (v<VERSION>-b<N>) so the release list stays short
-          gh release list --limit 100 | awk -F'\t' '{print $3}' | grep -E -- '-b[0-9]+$' | tail -n +11 | while read -r old; do
+          gh release list --limit 100 | awk -F'\t' '{print $3}' | grep -E -- '^v.*-b[0-9]+$' | tail -n +11 | while read -r old; do
+            gh release delete "$old" --cleanup-tag -y || true
+          done || true
+
+      # Pushes to the dev branch become a developer release (tag dev-v<VERSION>-b<run>, marked pre-release).
+      # The files are encrypted with the developer password (repository secret DEV_UPDATE_PASSWORD) before they
+      # are uploaded, so the public release holds only unreadable .enc files. The app decrypts them after the
+      # password has been entered in Settings > Data & info > Developer updates.
+      - name: Publish encrypted developer build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEV_UPDATE_PASSWORD: ${{ secrets.DEV_UPDATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEV_UPDATE_PASSWORD:-}" ]; then
+            echo "::error::Add the repository secret DEV_UPDATE_PASSWORD (Settings > Secrets and variables > Actions) to publish developer builds."
+            exit 1
+          fi
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          REL="dev-v${VERSION}-b${GITHUB_RUN_NUMBER}"
+          mkdir -p dist-dev
+          for f in dist/*.deb dist/*.ipa; do
+            python3 tools/encrypt_dev.py "$f" "dist-dev/$(basename "$f").enc"
+          done
+          if ! gh release view "$REL" >/dev/null 2>&1; then
+            gh release create "$REL" --target "${GITHUB_SHA}" --prerelease --title "ClaudeMini developer build ${REL}" \
+              --notes "Encrypted developer build. Open it from the app: Settings > Data & info > Developer updates."
+          fi
+          gh release upload "$REL" dist-dev/*.enc --clobber
+          # keep only the 10 newest developer builds
+          gh release list --limit 100 | awk -F'\t' '{print $3}' | grep -E -- '^dev-.*-b[0-9]+$' | tail -n +11 | while read -r old; do
             gh release delete "$old" --cleanup-tag -y || true
           done || true

@@ -269,3 +269,19 @@
 "update_err_corrupt" = "File tải về không hợp lệ. Hãy thử lại.";
 "update_err_save" = "Không lưu được file";
 "manual_tester" = "Kiểm thử thủ công";
+
+/* Developer updates */
+"dev_row_title" = "Bản cập nhật của developer";
+"dev_row_detail" = "Cần mật khẩu";
+"dev_prompt_title" = "Khu vực dành cho developer";
+"dev_prompt_msg" = "Nhập mật khẩu developer để xem các bản dựng thử.";
+"dev_prompt_placeholder" = "Mật khẩu";
+"dev_prompt_ok" = "Mở khóa";
+"dev_badge" = "Kênh developer: bản dựng thử, có thể chưa ổn định.";
+"dev_err_wrong" = "Mật khẩu không đúng.";
+"dev_err_busy" = "Đang kiểm tra, vui lòng đợi.";
+"dev_err_lockout" = "Nhập sai quá nhiều lần. Thử lại sau %@.";
+"dev_seconds" = "%ld giây";
+"dev_minutes" = "%ld phút";
+"dev_err_locked" = "Phiên developer đã khóa. Hãy nhập lại mật khẩu.";
+"dev_err_decrypt" = "Không giải mã được bản dựng (sai khóa hoặc file đã bị sửa).";
