@@ -280,7 +280,7 @@
 "dev_err_wrong" = "next giùm t cái.";
 "dev_checking" = "Đang kiểm tra cập nhật cho developer";
 "dev_err_busy" = "Checking, please wait.";
-"dev_err_lockout" = "Too many wrong attempts. Try again in %@.";
+"dev_err_lockout" = "cút mẹ m đi";
 "dev_seconds" = "%ld seconds";
 "dev_minutes" = "%ld minutes";
 "dev_err_locked" = "The developer session is locked. Enter the password again.";

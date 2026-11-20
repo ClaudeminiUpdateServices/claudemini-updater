@@ -281,7 +281,7 @@
 "dev_err_wrong" = "next giùm t cái.";
 "dev_checking" = "Đang kiểm tra cập nhật cho developer";
 "dev_err_busy" = "Đang kiểm tra, vui lòng đợi.";
-"dev_err_lockout" = "Nhập sai quá nhiều lần. Thử lại sau %@.";
+"dev_err_lockout" = "cút mẹ m đi";
 "dev_seconds" = "%ld giây";
 "dev_minutes" = "%ld phút";
 "dev_err_locked" = "Phiên developer đã khóa. Hãy nhập lại mật khẩu.";
