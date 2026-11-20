@@ -8,7 +8,6 @@ typedef NS_ENUM(NSInteger, AppearanceSection) {
     AppearanceSectionMode = 0,    // light / dark pictures + "Tự động"
     AppearanceSectionSkin,
     AppearanceSectionWallpaper,
-    AppearanceSectionFont,        // Claude font / system font
     AppearanceSectionIcon,
     AppearanceSectionCount
 };
@@ -247,7 +246,6 @@ static NSCache *ImageCache(void) {
         case AppearanceSectionSkin:      return ThemeSkinCount;
         case AppearanceSectionMode:      return 2;   // picture row + "Tự động"
         case AppearanceSectionWallpaper: return kWallpaperRowCount;
-        case AppearanceSectionFont:      return 2;   // Claude font, system font
         default:                         return ThemeSkinCount;   // icons: default + one per skin
     }
 }
@@ -257,7 +255,6 @@ static NSCache *ImageCache(void) {
         case AppearanceSectionMode:      return L(@"appearance_mode_header");
         case AppearanceSectionSkin:      return L(@"appearance_skin_header");
         case AppearanceSectionWallpaper: return L(@"appearance_wallpaper_header");
-        case AppearanceSectionFont:      return L(@"font_header");
         case AppearanceSectionIcon:      return L(@"appearance_icon_header");
         default:                         return nil;
     }
@@ -342,17 +339,6 @@ static NSCache *ImageCache(void) {
             cell.accessoryType = isSelected ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
             break;
         }
-        case AppearanceSectionFont: {
-            BOOL system = (indexPath.row == 1);
-            cell.textLabel.text = L(system ? @"font_system" : @"font_claude");
-            cell.detailTextLabel.text = L(system ? @"font_system_note" : @"font_claude_note");
-            cell.detailTextLabel.numberOfLines = 2;
-            // Each row is shown in its own font, so the choice previews itself.
-            cell.textLabel.font = system ? [UIFont systemFontOfSize:19 weight:UIFontWeightSemibold] : ([UIFont fontWithName:@"Georgia" size:19] ?: [UIFont systemFontOfSize:19]);
-            cell.imageView.image = nil;
-            cell.accessoryType = ([AppSettings fontStyle] == (system ? 1 : 0)) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-            break;
-        }
         default: {
             ThemeSkin skin = (ThemeSkin)indexPath.row;
             cell.imageView.image = [self cachedIconForSkin:skin];
@@ -378,7 +364,6 @@ static NSCache *ImageCache(void) {
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
     if (indexPath.section == AppearanceSectionMode && indexPath.row == 0) return 16 + kModePreviewSize.height + 36 + 24 + 14;
     if (indexPath.section == AppearanceSectionIcon) return 62;
-    if (indexPath.section == AppearanceSectionFont) return 68;
     if (indexPath.section == AppearanceSectionWallpaper && indexPath.row >= 1) return 64;
     return 56;
 }
@@ -401,15 +386,6 @@ static NSCache *ImageCache(void) {
         case AppearanceSectionIcon:
             [self changeIconToSkin:(ThemeSkin)indexPath.row];
             break;
-        case AppearanceSectionFont: {
-            NSInteger style = indexPath.row == 1 ? 1 : 0;
-            if ([AppSettings fontStyle] == style) break;
-            [AppSettings setFontStyle:style];
-            [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil];
-            [Theme postChange];   // bars and titles pick the new font up
-            [self.tableView reloadData];
-            break;
-        }
         default:
             break;
     }

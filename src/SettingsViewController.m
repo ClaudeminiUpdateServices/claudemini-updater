@@ -35,7 +35,29 @@
 @property (strong, nonatomic) NSLayoutConstraint *userLeftPaddingConstraint;
 @property (strong, nonatomic) NSLayoutConstraint *userRightPaddingConstraint;
 @property (strong, nonatomic) NSLayoutConstraint *bubbleGapConstraint;
+@property (strong, nonatomic) NSArray<UIImageView *> *fontChecks;   // tick of the Claude font / system font row
 @end
+
+// Claude font (serif) or the iOS system font, whichever is chosen.
+static UIFont *PreviewFont(CGFloat size, BOOL bold) {
+    if ([AppSettings fontStyle] == 1) return [UIFont systemFontOfSize:size weight:bold ? UIFontWeightSemibold : UIFontWeightRegular];
+    return [UIFont fontWithName:@"Georgia" size:size] ?: [UIFont systemFontOfSize:size weight:bold ? UIFontWeightSemibold : UIFontWeightRegular];
+}
+
+static UIImage *TickImage(UIColor *color) {
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(20, 20)];
+    return [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        UIBezierPath *tick = [UIBezierPath bezierPath];
+        [tick moveToPoint:CGPointMake(3.5, 10.5)];
+        [tick addLineToPoint:CGPointMake(8, 15)];
+        [tick addLineToPoint:CGPointMake(16.5, 5.5)];
+        tick.lineWidth = 2.4;
+        tick.lineCapStyle = kCGLineCapRound;
+        tick.lineJoinStyle = kCGLineJoinRound;
+        [color setStroke];
+        [tick stroke];
+    }];
+}
 
 @implementation FontScalePreviewViewController
 
@@ -122,6 +144,86 @@
     [resetButton addTarget:self action:@selector(resetScale) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:resetButton];
 
+    UILayoutGuide *safe0 = self.view.safeAreaLayoutGuide;
+    // Font chữ: Claude font or system font, each row shown in its own font
+    UILabel *fontHeader = [[UILabel alloc] init];
+    fontHeader.translatesAutoresizingMaskIntoConstraints = NO;
+    fontHeader.text = [L(@"font_header") uppercaseString];
+    fontHeader.font = [UIFont systemFontOfSize:13];
+    fontHeader.textColor = [Theme secondaryText];
+    [self.view addSubview:fontHeader];
+
+    UIView *fontCard = [[UIView alloc] init];
+    fontCard.translatesAutoresizingMaskIntoConstraints = NO;
+    fontCard.backgroundColor = [Theme surface];
+    fontCard.layer.cornerRadius = 14;
+    fontCard.layer.masksToBounds = YES;
+    fontCard.layer.borderWidth = 1.0 / [UIScreen mainScreen].scale;
+    fontCard.layer.borderColor = [Theme border].CGColor;
+    [self.view addSubview:fontCard];
+
+    NSMutableArray<UIImageView *> *checks = [NSMutableArray array];
+    NSMutableArray<NSLayoutConstraint *> *fontConstraints = [NSMutableArray array];
+    UIView *previousRow = nil;
+    for (NSInteger i = 0; i < 2; i++) {
+        UIButton *row = [UIButton buttonWithType:UIButtonTypeCustom];
+        row.translatesAutoresizingMaskIntoConstraints = NO;
+        row.tag = i;
+        [row addTarget:self action:@selector(fontRowTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [fontCard addSubview:row];
+
+        UILabel *name = [[UILabel alloc] init];
+        name.translatesAutoresizingMaskIntoConstraints = NO;
+        name.userInteractionEnabled = NO;
+        name.text = L(i == 1 ? @"font_system" : @"font_claude");
+        name.textColor = [Theme text];
+        name.font = i == 1 ? [UIFont systemFontOfSize:19 weight:UIFontWeightSemibold] : ([UIFont fontWithName:@"Georgia" size:19] ?: [UIFont systemFontOfSize:19]);
+        [row addSubview:name];
+
+        UIImageView *tick = [[UIImageView alloc] initWithImage:TickImage([Theme accent])];
+        tick.translatesAutoresizingMaskIntoConstraints = NO;
+        tick.userInteractionEnabled = NO;
+        [row addSubview:tick];
+        [checks addObject:tick];
+
+        [fontConstraints addObjectsFromArray:@[
+            [row.leadingAnchor constraintEqualToAnchor:fontCard.leadingAnchor],
+            [row.trailingAnchor constraintEqualToAnchor:fontCard.trailingAnchor],
+            [row.heightAnchor constraintEqualToConstant:52],
+            [row.topAnchor constraintEqualToAnchor:previousRow ? previousRow.bottomAnchor : fontCard.topAnchor constant:previousRow ? 1.0 / [UIScreen mainScreen].scale : 0],
+            [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor constant:16],
+            [name.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [tick.trailingAnchor constraintEqualToAnchor:row.trailingAnchor constant:-16],
+            [tick.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [tick.widthAnchor constraintEqualToConstant:20],
+            [tick.heightAnchor constraintEqualToConstant:20],
+        ]];
+        if (i == 0) {
+            UIView *line = [[UIView alloc] init];
+            line.translatesAutoresizingMaskIntoConstraints = NO;
+            line.backgroundColor = [Theme border];
+            [fontCard addSubview:line];
+            [fontConstraints addObjectsFromArray:@[
+                [line.leadingAnchor constraintEqualToAnchor:fontCard.leadingAnchor constant:16],
+                [line.trailingAnchor constraintEqualToAnchor:fontCard.trailingAnchor],
+                [line.topAnchor constraintEqualToAnchor:row.bottomAnchor],
+                [line.heightAnchor constraintEqualToConstant:1.0 / [UIScreen mainScreen].scale],
+            ]];
+        }
+        previousRow = row;
+    }
+    [fontConstraints addObject:[previousRow.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor]];
+    self.fontChecks = checks;
+    [NSLayoutConstraint activateConstraints:fontConstraints];
+    [NSLayoutConstraint activateConstraints:@[
+        [fontHeader.topAnchor constraintEqualToAnchor:resetButton.bottomAnchor constant:14],
+        [fontHeader.leadingAnchor constraintEqualToAnchor:safe0.leadingAnchor constant:32],
+        [fontCard.topAnchor constraintEqualToAnchor:fontHeader.bottomAnchor constant:8],
+        [fontCard.leadingAnchor constraintEqualToAnchor:safe0.leadingAnchor constant:16],
+        [fontCard.trailingAnchor constraintEqualToAnchor:safe0.trailingAnchor constant:-16],
+    ]];
+    [self updateFontChecks];
+
     // Ràng buộc padding động bên trong bong bóng
     self.aiTopPaddingConstraint = [self.aiLabel.topAnchor constraintEqualToAnchor:self.aiBubble.topAnchor constant:10];
     self.aiBottomPaddingConstraint = [self.aiLabel.bottomAnchor constraintEqualToAnchor:self.aiBubble.bottomAnchor constant:-10];
@@ -183,6 +285,21 @@
     [self applyScale:initialScale];
 }
 
+- (void)updateFontChecks {
+    NSInteger style = [AppSettings fontStyle] == 1 ? 1 : 0;
+    for (NSInteger i = 0; i < (NSInteger)self.fontChecks.count; i++) self.fontChecks[i].hidden = (i != style);
+}
+
+- (void)fontRowTapped:(UIButton *)sender {
+    NSInteger style = sender.tag == 1 ? 1 : 0;
+    if (([AppSettings fontStyle] == 1 ? 1 : 0) == style) return;
+    [AppSettings setFontStyle:style];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil];
+    [Theme postChange];   // bars and titles pick the new font up
+    [self updateFontChecks];
+    [self applyScale:[AppSettings uiScale]];
+}
+
 - (void)sliderChanged:(UISlider *)sender {
     // Làm tròn bước 0.05 (5%) để dễ căn chỉnh
     CGFloat stepped = roundf(sender.value * 20.0f) / 20.0f;
@@ -200,8 +317,8 @@
     self.percentLabel.text = [NSString stringWithFormat:@"%ld%%", (long)llround(scale * 100.0)];
 
     CGFloat fontSize = 16.0 * scale;
-    self.aiLabel.font = [UIFont systemFontOfSize:fontSize];
-    self.userLabel.font = [UIFont systemFontOfSize:fontSize];
+    self.aiLabel.font = PreviewFont(fontSize, NO);
+    self.userLabel.font = PreviewFont(fontSize, NO);
 
     CGFloat vPad = 10.0 * scale;
     CGFloat hPad = 14.0 * scale;
@@ -235,6 +352,234 @@
 }
 
 @end
+
+#pragma mark - Row icons (iOS Settings style: colored rounded tile with a white glyph, all drawn in code)
+
+typedef NS_ENUM(NSInteger, SettingsIconKind) {
+    SIAppearance = 0, SILanguage, SIFontSize, SIKeyGemini, SIKeyClaude, SIKeyTier, SIPrompt, SIPhoto, SITokens,
+    SIContext, SITrash, SIInfo, SIUpdate, SIDeveloper, SIDiagnostics, SIKindCount
+};
+
+static UIColor *SettingsRGB(uint32_t hex) {
+    return [UIColor colorWithRed:((hex >> 16) & 0xFF) / 255.0 green:((hex >> 8) & 0xFF) / 255.0 blue:(hex & 0xFF) / 255.0 alpha:1];
+}
+
+static UIColor *SettingsTileColor(SettingsIconKind kind) {
+    switch (kind) {
+        case SIAppearance: return SettingsRGB(0x007AFF);
+        case SILanguage:   return SettingsRGB(0xAF52DE);
+        case SIFontSize:   return SettingsRGB(0x5856D6);
+        case SIKeyGemini:  return SettingsRGB(0x4285F4);
+        case SIKeyClaude:  return SettingsRGB(0xD97757);
+        case SIKeyTier:    return SettingsRGB(0x34C759);
+        case SIPrompt:     return SettingsRGB(0xFF9500);
+        case SIPhoto:      return SettingsRGB(0xFF2D55);
+        case SITokens:     return SettingsRGB(0x30B0C7);
+        case SIContext:    return SettingsRGB(0x8E8E93);
+        case SITrash:      return SettingsRGB(0xFF3B30);
+        case SIInfo:       return SettingsRGB(0x8E8E93);
+        case SIUpdate:     return SettingsRGB(0x007AFF);
+        case SIDeveloper:  return SettingsRGB(0x3A3A3C);
+        default:           return SettingsRGB(0xFF9500);   // diagnostics
+    }
+}
+
+static void StrokeLine(CGPoint a, CGPoint b, CGFloat width) {
+    UIBezierPath *line = [UIBezierPath bezierPath];
+    [line moveToPoint:a];
+    [line addLineToPoint:b];
+    line.lineWidth = width;
+    line.lineCapStyle = kCGLineCapRound;
+    [line stroke];
+}
+
+static UIImage *SettingsIcon(SettingsIconKind kind) {
+    static NSMutableDictionary<NSNumber *, UIImage *> *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    UIImage *cached = cache[@(kind)];
+    if (cached) return cached;
+
+    const CGFloat side = 30;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        [SettingsTileColor(kind) setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, side, side) cornerRadius:6.9] fill];
+        UIColor *white = [UIColor whiteColor];
+        [white setStroke];
+        [white setFill];
+        CGPoint c = CGPointMake(15, 15);
+        switch (kind) {
+            case SIAppearance: {   // half-filled circle (display brightness)
+                UIBezierPath *ring = [UIBezierPath bezierPathWithArcCenter:c radius:8 startAngle:0 endAngle:2 * M_PI clockwise:YES];
+                ring.lineWidth = 1.8;
+                [ring stroke];
+                UIBezierPath *half = [UIBezierPath bezierPathWithArcCenter:c radius:8 startAngle:M_PI_2 endAngle:3 * M_PI_2 clockwise:YES];
+                [half closePath];
+                [half fill];
+                break;
+            }
+            case SILanguage: {   // globe
+                UIBezierPath *ring = [UIBezierPath bezierPathWithArcCenter:c radius:8.5 startAngle:0 endAngle:2 * M_PI clockwise:YES];
+                ring.lineWidth = 1.6;
+                [ring stroke];
+                UIBezierPath *meridian = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(15 - 3.6, 15 - 8.5, 7.2, 17)];
+                meridian.lineWidth = 1.5;
+                [meridian stroke];
+                StrokeLine(CGPointMake(6.5, 15), CGPointMake(23.5, 15), 1.5);
+                break;
+            }
+            case SIFontSize: {   // "Aa"
+                UIFont *big = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+                UIFont *small = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
+                NSDictionary *bigAttrs = @{ NSFontAttributeName: big, NSForegroundColorAttributeName: white };
+                NSDictionary *smallAttrs = @{ NSFontAttributeName: small, NSForegroundColorAttributeName: white };
+                CGFloat baseline = 21;
+                [@"A" drawAtPoint:CGPointMake(5, baseline - big.ascender) withAttributes:bigAttrs];
+                [@"a" drawAtPoint:CGPointMake(16.2, baseline - small.ascender) withAttributes:smallAttrs];
+                break;
+            }
+            case SIKeyGemini:
+            case SIKeyClaude: {   // key
+                UIBezierPath *ring = [UIBezierPath bezierPathWithArcCenter:CGPointMake(10.5, 15) radius:4.3 startAngle:0 endAngle:2 * M_PI clockwise:YES];
+                ring.lineWidth = 2.1;
+                [ring stroke];
+                StrokeLine(CGPointMake(14.8, 15), CGPointMake(24, 15), 2.1);
+                StrokeLine(CGPointMake(19.8, 15), CGPointMake(19.8, 19), 2.1);
+                StrokeLine(CGPointMake(23.6, 15), CGPointMake(23.6, 18.4), 2.1);
+                break;
+            }
+            case SIKeyTier: {   // rising bars
+                CGFloat heights[3] = { 6, 10.5, 15 };
+                for (int i = 0; i < 3; i++) {
+                    CGRect bar = CGRectMake(7 + i * 6.2, 22.5 - heights[i], 4.6, heights[i]);
+                    [[UIBezierPath bezierPathWithRoundedRect:bar cornerRadius:1.4] fill];
+                }
+                break;
+            }
+            case SIPrompt: {   // document with lines
+                UIBezierPath *page = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(8.5, 6.5, 13, 17) cornerRadius:2.5];
+                page.lineWidth = 1.8;
+                [page stroke];
+                StrokeLine(CGPointMake(11.8, 11.5), CGPointMake(18.2, 11.5), 1.6);
+                StrokeLine(CGPointMake(11.8, 15), CGPointMake(18.2, 15), 1.6);
+                StrokeLine(CGPointMake(11.8, 18.5), CGPointMake(15.6, 18.5), 1.6);
+                break;
+            }
+            case SIPhoto: {   // picture: frame, mountains and sun
+                UIBezierPath *frame = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(6.5, 8.5, 17, 13) cornerRadius:2.6];
+                frame.lineWidth = 1.8;
+                [frame stroke];
+                UIBezierPath *hills = [UIBezierPath bezierPath];
+                [hills moveToPoint:CGPointMake(8.5, 19.5)];
+                [hills addLineToPoint:CGPointMake(13, 14.5)];
+                [hills addLineToPoint:CGPointMake(16.5, 18)];
+                [hills addLineToPoint:CGPointMake(18.5, 16)];
+                [hills addLineToPoint:CGPointMake(21.5, 19.5)];
+                hills.lineWidth = 1.6;
+                hills.lineJoinStyle = kCGLineJoinRound;
+                hills.lineCapStyle = kCGLineCapRound;
+                [hills stroke];
+                [[UIBezierPath bezierPathWithArcCenter:CGPointMake(19.2, 12.4) radius:1.5 startAngle:0 endAngle:2 * M_PI clockwise:YES] fill];
+                break;
+            }
+            case SITokens: {   // gauge
+                UIBezierPath *arc = [UIBezierPath bezierPathWithArcCenter:CGPointMake(15, 18.5) radius:8.5 startAngle:M_PI endAngle:2 * M_PI clockwise:YES];
+                arc.lineWidth = 2;
+                arc.lineCapStyle = kCGLineCapRound;
+                [arc stroke];
+                StrokeLine(CGPointMake(15, 18.5), CGPointMake(19.6, 12.8), 2);
+                [[UIBezierPath bezierPathWithArcCenter:CGPointMake(15, 18.5) radius:1.8 startAngle:0 endAngle:2 * M_PI clockwise:YES] fill];
+                break;
+            }
+            case SIContext: {   // chip
+                UIBezierPath *body = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(10, 10, 10, 10) cornerRadius:2];
+                body.lineWidth = 1.8;
+                [body stroke];
+                [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(13, 13, 4, 4) cornerRadius:0.8] fill];
+                CGFloat pins[2] = { 12.5, 17.5 };
+                for (int i = 0; i < 2; i++) {
+                    StrokeLine(CGPointMake(pins[i], 6.6), CGPointMake(pins[i], 10), 1.6);
+                    StrokeLine(CGPointMake(pins[i], 20), CGPointMake(pins[i], 23.4), 1.6);
+                    StrokeLine(CGPointMake(6.6, pins[i]), CGPointMake(10, pins[i]), 1.6);
+                    StrokeLine(CGPointMake(20, pins[i]), CGPointMake(23.4, pins[i]), 1.6);
+                }
+                break;
+            }
+            case SITrash: {
+                StrokeLine(CGPointMake(8.5, 10.5), CGPointMake(21.5, 10.5), 2);
+                UIBezierPath *handle = [UIBezierPath bezierPath];
+                [handle moveToPoint:CGPointMake(12.5, 10.5)];
+                [handle addLineToPoint:CGPointMake(12.5, 8.4)];
+                [handle addLineToPoint:CGPointMake(17.5, 8.4)];
+                [handle addLineToPoint:CGPointMake(17.5, 10.5)];
+                handle.lineWidth = 1.7;
+                handle.lineJoinStyle = kCGLineJoinRound;
+                [handle stroke];
+                UIBezierPath *can = [UIBezierPath bezierPath];
+                [can moveToPoint:CGPointMake(10, 13)];
+                [can addLineToPoint:CGPointMake(11, 22.4)];
+                [can addLineToPoint:CGPointMake(19, 22.4)];
+                [can addLineToPoint:CGPointMake(20, 13)];
+                can.lineWidth = 1.8;
+                can.lineJoinStyle = kCGLineJoinRound;
+                [can stroke];
+                StrokeLine(CGPointMake(13.6, 15.5), CGPointMake(13.9, 20), 1.5);
+                StrokeLine(CGPointMake(16.4, 15.5), CGPointMake(16.1, 20), 1.5);
+                break;
+            }
+            case SIInfo: {
+                UIBezierPath *ring = [UIBezierPath bezierPathWithArcCenter:c radius:9 startAngle:0 endAngle:2 * M_PI clockwise:YES];
+                ring.lineWidth = 1.8;
+                [ring stroke];
+                [[UIBezierPath bezierPathWithArcCenter:CGPointMake(15, 10.8) radius:1.2 startAngle:0 endAngle:2 * M_PI clockwise:YES] fill];
+                StrokeLine(CGPointMake(15, 14), CGPointMake(15, 20.2), 2);
+                break;
+            }
+            case SIUpdate: {   // circular arrow
+                UIBezierPath *arc = [UIBezierPath bezierPathWithArcCenter:c radius:7.5 startAngle:-0.1 * M_PI endAngle:1.5 * M_PI clockwise:YES];
+                arc.lineWidth = 2;
+                arc.lineCapStyle = kCGLineCapRound;
+                [arc stroke];
+                UIBezierPath *head = [UIBezierPath bezierPath];
+                [head moveToPoint:CGPointMake(19.6, 7.5)];
+                [head addLineToPoint:CGPointMake(14.4, 3.8)];
+                [head addLineToPoint:CGPointMake(14.4, 11.2)];
+                [head closePath];
+                [head fill];
+                break;
+            }
+            case SIDeveloper: {   // ">_"
+                UIBezierPath *chevron = [UIBezierPath bezierPath];
+                [chevron moveToPoint:CGPointMake(8.5, 10.5)];
+                [chevron addLineToPoint:CGPointMake(13.5, 15)];
+                [chevron addLineToPoint:CGPointMake(8.5, 19.5)];
+                chevron.lineWidth = 2;
+                chevron.lineCapStyle = kCGLineCapRound;
+                chevron.lineJoinStyle = kCGLineJoinRound;
+                [chevron stroke];
+                StrokeLine(CGPointMake(15.5, 20), CGPointMake(22, 20), 2);
+                break;
+            }
+            default: {   // diagnostics: pulse line
+                UIBezierPath *pulse = [UIBezierPath bezierPath];
+                [pulse moveToPoint:CGPointMake(5, 15)];
+                [pulse addLineToPoint:CGPointMake(10, 15)];
+                [pulse addLineToPoint:CGPointMake(12.5, 8.5)];
+                [pulse addLineToPoint:CGPointMake(16.5, 21.5)];
+                [pulse addLineToPoint:CGPointMake(19, 15)];
+                [pulse addLineToPoint:CGPointMake(25, 15)];
+                pulse.lineWidth = 1.9;
+                pulse.lineCapStyle = kCGLineCapRound;
+                pulse.lineJoinStyle = kCGLineJoinRound;
+                [pulse stroke];
+                break;
+            }
+        }
+    }];
+    cache[@(kind)] = image;
+    return image;
+}
 
 #pragma mark - SettingsViewController
 
@@ -437,10 +782,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == SettingsSectionKeys) return [NSString stringWithFormat:@"%@\n\n%@", L(@"keys_footer"), L(@"key_tier_footer")];
-    if (section == SettingsSectionAssistant) return L(@"attach_memory_footer");
-    if (section == SettingsSectionData) return [NSString stringWithFormat:@"%@\n\n%@", L(@"privacy_footer"), [NSString stringWithFormat:L(@"update_footer"), [UpdateManager shared].installKindName]];
-    return nil;
+    return nil;   // no descriptions under the groups: the screen stays compact
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -512,10 +854,9 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
                 UpdateManager *m = [UpdateManager shared];
                 cell.textLabel.text = L(@"update_row_title");
                 cell.detailTextLabel.textColor = [Theme secondaryText];
-                NSString *current = [NSString stringWithFormat:@"%@", m.currentVersion];
                 switch (m.state) {
                     case UpdateStateChecking:    cell.detailTextLabel.text = L(@"update_row_checking"); break;
-                    case UpdateStateUpToDate:    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ \u00B7 %@", current, L(@"update_row_latest")]; break;
+                    case UpdateStateUpToDate:    cell.detailTextLabel.text = L(@"update_row_latest"); break;
                     case UpdateStateAvailable:
                         cell.detailTextLabel.text = [NSString stringWithFormat:L(@"update_row_new"), m.latestLabel];
                         cell.detailTextLabel.textColor = [Theme accent];
@@ -526,19 +867,39 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
                         cell.detailTextLabel.textColor = [Theme accent];
                         break;
                     case UpdateStateFailed:      cell.detailTextLabel.text = L(@"update_row_error"); break;
-                    default:                     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ \u00B7 %@", current, L(@"update_row_check")]; break;
+                    default:                     cell.detailTextLabel.text = L(@"update_row_check"); break;
                 }
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                 }
             } else if (indexPath.row == 3) {
                 cell.textLabel.text = L(@"dev_row_title");
-                cell.detailTextLabel.text = L(@"dev_row_detail");
+                cell.detailTextLabel.text = nil;
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             } else {
                 cell.textLabel.text = L(@"diagnostics_title");
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             }
             break;
+    }
+    NSInteger iconKind = -1;
+    switch (indexPath.section) {
+        case SettingsSectionLook:      iconKind = indexPath.row == 0 ? SIAppearance : (indexPath.row == 1 ? SILanguage : SIFontSize); break;
+        case SettingsSectionKeys:      iconKind = indexPath.row == 0 ? SIKeyGemini : (indexPath.row == 1 ? SIKeyClaude : SIKeyTier); break;
+        case SettingsSectionAssistant: {
+            static const SettingsIconKind assistantIcons[4] = { SIPrompt, SIPhoto, SITokens, SIContext };
+            iconKind = indexPath.row >= 0 && indexPath.row < 4 ? assistantIcons[indexPath.row] : -1;
+            break;
+        }
+        case SettingsSectionData: {
+            static const SettingsIconKind dataIcons[5] = { SITrash, SIInfo, SIUpdate, SIDeveloper, SIDiagnostics };
+            iconKind = indexPath.row >= 0 && indexPath.row < 5 ? dataIcons[indexPath.row] : -1;
+            break;
+        }
+        default: break;
+    }
+    if (iconKind >= 0) {
+        cell.imageView.image = SettingsIcon((SettingsIconKind)iconKind);
+        cell.separatorInset = UIEdgeInsetsMake(0, 62, 0, 0);   // the line starts under the text, like iOS Settings
     }
     return cell;
 }
