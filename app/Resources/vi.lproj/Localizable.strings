@@ -234,7 +234,7 @@
 "update_row_title" = "Cập nhật ứng dụng";
 "update_row_check" = "Chạm để kiểm tra";
 "update_row_checking" = "Đang kiểm tra…";
-"update_row_latest" = "Đã mới nhất";
+"update_row_latest" = "Đã là bản mới nhất";
 "update_row_new" = "Có bản mới %@";
 "update_row_downloading" = "Đang tải…";
 "update_row_ready" = "Đã tải %@";
@@ -242,7 +242,7 @@
 "update_footer" = "Tự kiểm tra bản mới trên GitHub. Bản cài của bạn là %@: ứng dụng chỉ tải đúng loại file này.";
 "update_checking" = "Đang kiểm tra…";
 "update_checking_msg" = "Đang xem bản mới trên GitHub.";
-"update_uptodate" = "Đã là bản mới nhất";
+"update_uptodate" = "Bạn đang dùng bản mới nhất";
 "update_uptodate_msg" = "Bạn đang dùng phiên bản %@.";
 "update_check_again" = "Kiểm tra lại";
 "update_available" = "Có bản cập nhật mới";

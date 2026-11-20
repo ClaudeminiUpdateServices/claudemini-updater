@@ -233,7 +233,7 @@
 "update_row_title" = "App update";
 "update_row_check" = "Tap to check";
 "update_row_checking" = "Checking…";
-"update_row_latest" = "Up to date";
+"update_row_latest" = "You're up to date";
 "update_row_new" = "New version %@";
 "update_row_downloading" = "Downloading…";
 "update_row_ready" = "%@ downloaded";
@@ -241,7 +241,7 @@
 "update_footer" = "Checks GitHub for new versions. Your install is %@, so only that kind of file is downloaded.";
 "update_checking" = "Checking…";
 "update_checking_msg" = "Looking for a new version on GitHub.";
-"update_uptodate" = "You have the latest version";
+"update_uptodate" = "You're up to date";
 "update_uptodate_msg" = "You are using version %@.";
 "update_check_again" = "Check again";
 "update_available" = "A new version is available";
