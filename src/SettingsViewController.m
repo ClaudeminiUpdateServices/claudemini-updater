@@ -305,7 +305,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
         field.secureTextEntry = YES;
         field.autocapitalizationType = UITextAutocapitalizationTypeNone;
         field.autocorrectionType = UITextAutocorrectionTypeNo;
-        field.spellCheckingType = UITextSpellCheckTypeNo;
+        field.spellCheckingType = UITextSpellCheckingTypeNo;
         field.keyboardType = UIKeyboardTypeASCIICapable;
         field.returnKeyType = UIReturnKeyDone;
     }];
