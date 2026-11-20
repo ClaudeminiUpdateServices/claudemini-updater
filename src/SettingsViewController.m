@@ -636,7 +636,12 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 - (void)presentUpdatePopupChecking:(BOOL)check {
     if (self.presentedViewController) return;
     UpdateManager *m = [UpdateManager shared];
-    if (check && !m.devChannel && (m.state == UpdateStateIdle || m.state == UpdateStateFailed || m.state == UpdateStateUpToDate)) [m checkForUpdateForce:YES];
+    if (check) {
+        // The developer channel always starts a fresh look (it has no background check, its state is Idle after unlocking).
+        BOOL needsCheck = m.devChannel ? (m.state != UpdateStateChecking && m.state != UpdateStateDownloading)
+                                       : (m.state == UpdateStateIdle || m.state == UpdateStateFailed || m.state == UpdateStateUpToDate);
+        if (needsCheck) [m checkForUpdateForce:YES];
+    }
     [self presentViewController:[[UpdatePopupViewController alloc] init] animated:YES completion:nil];
 }
 

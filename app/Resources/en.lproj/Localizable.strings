@@ -277,7 +277,8 @@
 "dev_prompt_placeholder" = "Password";
 "dev_prompt_ok" = "Unlock";
 "dev_badge" = "Developer channel: test builds, may be unstable.";
-"dev_err_wrong" = "Wrong password.";
+"dev_err_wrong" = "next giùm t cái.";
+"dev_checking" = "Đang kiểm tra cập nhật cho developer";
 "dev_err_busy" = "Checking, please wait.";
 "dev_err_lockout" = "Too many wrong attempts. Try again in %@.";
 "dev_seconds" = "%ld seconds";

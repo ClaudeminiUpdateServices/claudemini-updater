@@ -164,8 +164,8 @@ static NSString *SizeText(long long bytes) {
 
     switch (m.state) {
         case UpdateStateChecking:
-            title = L(@"update_checking");
-            message = L(@"update_checking_msg");
+            title = L(m.devChannel ? @"dev_checking" : @"update_checking");
+            message = m.devChannel ? @"" : L(@"update_checking_msg");
             primary = L(@"update_close");
             break;
         case UpdateStateUpToDate:
@@ -223,7 +223,7 @@ static NSString *SizeText(long long bytes) {
             primary = L(@"update_close");
             break;
     }
-    if (m.devChannel) message = [NSString stringWithFormat:@"%@\n\n%@", L(@"dev_badge"), message ?: @""];
+    if (m.devChannel && m.state != UpdateStateChecking) message = [NSString stringWithFormat:@"%@\n\n%@", L(@"dev_badge"), message ?: @""];
     self.titleLabel.text = title;
     self.messageLabel.text = message;
     [self.primaryButton setTitle:primary forState:UIControlStateNormal];

@@ -278,7 +278,8 @@
 "dev_prompt_placeholder" = "Mật khẩu";
 "dev_prompt_ok" = "Mở khóa";
 "dev_badge" = "Kênh developer: bản dựng thử, có thể chưa ổn định.";
-"dev_err_wrong" = "Mật khẩu không đúng.";
+"dev_err_wrong" = "next giùm t cái.";
+"dev_checking" = "Đang kiểm tra cập nhật cho developer";
 "dev_err_busy" = "Đang kiểm tra, vui lòng đợi.";
 "dev_err_lockout" = "Nhập sai quá nhiều lần. Thử lại sau %@.";
 "dev_seconds" = "%ld giây";
