@@ -51,9 +51,10 @@ cp app/Info.plist "$APPDIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APPDIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$APPDIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$APPDIR/Info.plist"
-# The in-app updater looks for new versions in the repository this build was made in.
-if [ -n "${GITHUB_REPOSITORY:-}" ]; then
-  /usr/libexec/PlistBuddy -c "Set :ClaudeMiniUpdateRepo $GITHUB_REPOSITORY" "$APPDIR/Info.plist"
+# The in-app updater always looks in the official updater repo (set in app/Info.plist).
+# Override only on purpose: CLAUDEMINI_UPDATE_REPO=owner/repo ./build.sh
+if [ -n "${CLAUDEMINI_UPDATE_REPO:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Set :ClaudeMiniUpdateRepo $CLAUDEMINI_UPDATE_REPO" "$APPDIR/Info.plist"
 fi
 cp -R app/Resources/. "$APPDIR/"
 printf 'APPL????' > "$APPDIR/PkgInfo"
