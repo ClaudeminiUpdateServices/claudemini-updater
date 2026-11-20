@@ -1,0 +1,17 @@
+ClaudeMini long-code continuation patch
+
+Replace these files under src/:
+- ChatViewController.m
+- ClaudeStream.m
+- GeminiStream.m
+- AppSettings.m
+- SettingsViewController.m
+
+Behavior:
+- Uses the selected provider model's published output cap when the app output limit is set to 0 (model maximum).
+- Detects Anthropic stop_reason=max_tokens and Gemini finishReason=MAX_TOKENS.
+- Automatically continues up to 10 additional segments, appending each segment to one visible assistant reply and one saved message.
+- Stops safely when the accumulated continuation would consume too much of the model input context; preserves the generated text and displays a continuation notice.
+- Keeps the + tools menu and search chip in ChatViewController.m.
+
+Provider/model output and context limits still apply. This patch cannot make a provider emit unlimited tokens in one request.
