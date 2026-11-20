@@ -139,6 +139,11 @@ jobs:
           for f in dist/*.deb dist/*.ipa; do
             python3 tools/encrypt_dev.py "$f" "dist-dev/$(basename "$f").enc"
           done
+          # The source code of this build, also encrypted: download it from the release and open it with
+          # tools/decrypt_dev.py (needs the developer password).
+          git archive --format=zip -o "ClaudeMini-source.zip" HEAD
+          python3 tools/encrypt_dev.py "ClaudeMini-source.zip" "dist-dev/ClaudeMini-source-v${VERSION}-b${GITHUB_RUN_NUMBER}.zip.enc"
+          rm -f "ClaudeMini-source.zip"
           if ! gh release view "$REL" >/dev/null 2>&1; then
             gh release create "$REL" --target "${GITHUB_SHA}" --prerelease --title "ClaudeMini developer build ${REL}" \
               --notes "Encrypted developer build. Open it from the app: Settings > Data & info > Developer updates."
