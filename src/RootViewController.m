@@ -6,6 +6,7 @@
 #import "Provider.h"
 #import "DiagnosticLog.h"
 #import "Strings.h"
+#import "ChoicePopupViewController.h"
 
 typedef NS_ENUM(NSInteger, StatusKind) {
     StatusNeutral = 0,
@@ -397,13 +398,10 @@ typedef NS_ENUM(NSInteger, StatusKind) {
 }
 
 - (void)deleteTapped {
-    UIAlertController *alert =
-        [UIAlertController alertControllerWithTitle:L(@"delete_confirm_title")
-                                            message:L(@"delete_confirm_msg")
-                                     preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"delete_confirm_title") message:L(@"delete_confirm_msg")];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"delete") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"delete") style:UIAlertActionStyleDestructive handler:^(id action) {
         RootViewController *strongSelf = weakSelf;
         if (!strongSelf) return;
         [KeyStore deleteKeyForProvider:strongSelf.provider];
@@ -413,7 +411,7 @@ typedef NS_ENUM(NSInteger, StatusKind) {
         [strongSelf.view setNeedsLayout];
         [[NSNotificationCenter defaultCenter] postNotificationName:kNotifKeyChanged object:nil];
     }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [alert presentFromViewController:self];
 }
 
 #pragma mark - UITextFieldDelegate

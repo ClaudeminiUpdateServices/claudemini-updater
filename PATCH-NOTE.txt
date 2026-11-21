@@ -19,3 +19,5 @@ Giao dien (beta): them 7 icon che do toi (Default, SideStore, LiveContainer, Dop
 Icon toi (lam lai): tach hinh khoi nen bang do phu chinh xac tung pixel (khong con vien trang), ve lai gradient moi cho tung icon, LiveContainer dung tam nen toi + vien xanh.
 
 Icon toi: mau gradient lay dung tu anh goc (khong tu tao mau); chi nang do sang chung cho Dopamine va Github de khong bi chim vao nen toi.
+
+Hop thoai (beta): thay het UIAlertController (hop thoai xac nhan, thong bao, nhap mat khau dev, doi ten, xoa) bang pop-up ClaudeMini; hop co o nhap tu day len tren ban phim.

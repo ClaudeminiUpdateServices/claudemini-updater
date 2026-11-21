@@ -1,6 +1,7 @@
 #import "AppearanceViewController.h"
 #import "AppSettings.h"
 #import "Strings.h"
+#import "ChoicePopupViewController.h"
 #import "Theme.h"
 #import "DiagnosticLog.h"
 
@@ -500,15 +501,13 @@ static NSCache *ImageCache(void) {
     // Each skin has its own icon: offer to switch the Home Screen icon too (iOS shows its own confirmation).
     BOOL iconDark = [Theme iconStyleDark];
     if (skin != ThemeSkinClaude && [self iconsSupported] && ([self currentIconSkin] != skin || [Theme activeIconDark] != iconDark)) {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"icon_offer_title")
-                                                                       message:[NSString stringWithFormat:L(@"icon_offer_msg"), [Theme iconDisplayNameForSkin:skin]]
-                                                                preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:L(@"icon_offer_no") style:UIAlertActionStyleCancel handler:nil]];
+        ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"icon_offer_title") message:[NSString stringWithFormat:L(@"icon_offer_msg"), [Theme iconDisplayNameForSkin:skin]]];
+        [alert addAction:[ChoiceAction actionWithTitle:L(@"icon_offer_no") style:UIAlertActionStyleCancel handler:nil]];
         __weak typeof(self) weakSelf = self;
-        [alert addAction:[UIAlertAction actionWithTitle:L(@"icon_offer_yes") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [alert addAction:[ChoiceAction actionWithTitle:L(@"icon_offer_yes") style:UIAlertActionStyleDefault handler:^(id a) {
             [weakSelf changeIconToSkin:skin dark:iconDark];
         }]];
-        [self presentViewController:alert animated:YES completion:nil];
+        [alert presentFromViewController:self];
     }
 }
 
@@ -574,19 +573,19 @@ static NSCache *ImageCache(void) {
 
 // The new Home Screen icon often appears only after SpringBoard restarts: offer to do it right away.
 - (void)offerRespring {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:L(@"icon_helper_done") preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"icon_later") style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"icon_respring") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:nil message:L(@"icon_helper_done")];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"icon_later") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"icon_respring") style:UIAlertActionStyleDefault handler:^(id a) {
         [DiagnosticLog log:@"respring requested after an icon change"];
         [Theme respringWithHelper];
     }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [alert presentFromViewController:self];
 }
 
 - (void)showMessage:(NSString *)message {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-    [self presentViewController:alert animated:YES completion:nil];
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:nil message:message];
+    [alert addAction:[ChoiceAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    [alert presentFromViewController:self];
 }
 
 @end

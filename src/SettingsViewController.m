@@ -650,7 +650,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 
 - (void)presentDevPasswordPrompt {
     if (self.presentedViewController) return;
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"dev_prompt_title") message:L(@"dev_prompt_msg") preferredStyle:UIAlertControllerStyleAlert];
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:L(@"dev_prompt_msg")];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
         field.placeholder = L(@"dev_prompt_placeholder");
         field.secureTextEntry = YES;
@@ -661,15 +661,15 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
         field.returnKeyType = UIReturnKeyDone;
     }];
     __weak typeof(self) weakSelf = self;
-    __weak UIAlertController *weakAlert = alert;
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"dev_prompt_ok") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    __weak ChoicePopupViewController *weakAlert = alert;
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"dev_prompt_ok") style:UIAlertActionStyleDefault handler:^(id action) {
         UITextField *field = weakAlert.textFields.firstObject;
         NSString *typed = [field.text copy];
         field.text = @"";   // do not keep the password in the field
         [weakSelf submitDevPassword:typed];
     }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [alert presentFromViewController:self];
 }
 
 - (void)submitDevPassword:(NSString *)password {
@@ -700,9 +700,9 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
         } else {
             message = L(@"dev_err_wrong");
         }
-        UIAlertController *fail = [UIAlertController alertControllerWithTitle:L(@"dev_prompt_title") message:message preferredStyle:UIAlertControllerStyleAlert];
-        [fail addAction:[UIAlertAction actionWithTitle:L(@"update_close") style:UIAlertActionStyleCancel handler:nil]];
-        if (!me.presentedViewController) [me presentViewController:fail animated:YES completion:nil];
+        ChoicePopupViewController *fail = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:message];
+        [fail addAction:[ChoiceAction actionWithTitle:L(@"update_close") style:UIAlertActionStyleCancel handler:nil]];
+        if (!me.presentedViewController) [fail presentFromViewController:me];
     }];
 }
 
@@ -1113,9 +1113,9 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
         [me.tableView reloadData];
         NSString *message = tier == KeyTierUnknown ? L(@"key_tier_failed")
                                                     : [NSString stringWithFormat:L(@"key_tier_result"), [me tierName:tier]];
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [me presentViewController:alert animated:YES completion:nil];
+        ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:nil message:message];
+        [alert addAction:[ChoiceAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [alert presentFromViewController:me];
     }];
 }
 
@@ -1139,23 +1139,19 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 #pragma mark - History
 
 - (void)confirmClearHistory {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"clear_history_confirm_title")
-                                                                   message:L(@"clear_history_confirm_msg")
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"clear_history_confirm_title") message:L(@"clear_history_confirm_msg")];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[UIAlertAction actionWithTitle:L(@"delete") style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"delete") style:UIAlertActionStyleDestructive handler:^(id action) {
         [ConversationStore deleteAll];
         [[NSNotificationCenter defaultCenter] postNotificationName:kNotifHistoryCleared object:nil];
         SettingsViewController *me = weakSelf;
         if (!me) return;
-        UIAlertController *done = [UIAlertController alertControllerWithTitle:nil
-                                                                      message:L(@"history_cleared")
-                                                               preferredStyle:UIAlertControllerStyleAlert];
-        [done addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [me presentViewController:done animated:YES completion:nil];
+        ChoicePopupViewController *done = [ChoicePopupViewController alertWithTitle:nil message:L(@"history_cleared")];
+        [done addAction:[ChoiceAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [done presentFromViewController:me];
     }]];
-    [self presentViewController:alert animated:YES completion:nil];
+    [alert presentFromViewController:self];
 }
 
 @end

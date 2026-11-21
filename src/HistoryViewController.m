@@ -1,5 +1,6 @@
 #import "HistoryViewController.h"
 #import "Strings.h"
+#import "ChoicePopupViewController.h"
 #import "Theme.h"
 #import "ConversationStore.h"
 #import "SettingsViewController.h"
@@ -238,23 +239,21 @@ trailingSwipeActionsConfigurationForRowAtIndexPath:(NSIndexPath *)indexPath {
                                               handler:^(UIContextualAction *action, UIView *sourceView, void (^completionHandler)(BOOL)) {
         HistoryViewController *me = weakSelf;
         if (!me) { completionHandler(NO); return; }
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"rename_title")
-                                                                       message:nil
-                                                                preferredStyle:UIAlertControllerStyleAlert];
+        ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"rename_title") message:nil];
         [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
             field.text = currentTitle;
             field.clearButtonMode = UITextFieldViewModeWhileEditing;
             field.autocapitalizationType = UITextAutocapitalizationTypeSentences;
         }];
-        [alert addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-        [alert addAction:[UIAlertAction actionWithTitle:L(@"save") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+        [alert addAction:[ChoiceAction actionWithTitle:L(@"save") style:UIAlertActionStyleDefault handler:^(id a) {
             NSString *newTitle = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
             if (newTitle.length > 0) {
                 [ConversationStore renameConversationWithId:cid title:newTitle];
                 [me reloadEntries];
             }
         }]];
-        [me presentViewController:alert animated:YES completion:nil];
+        [alert presentFromViewController:me];
         completionHandler(YES);
     }];
     rename.backgroundColor = [Theme accent];

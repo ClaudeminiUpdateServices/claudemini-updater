@@ -1231,11 +1231,11 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 }
 
 - (void)showAlertMessage:(NSString *)message title:(NSString *)title {
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-    [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:title message:message];
+    [alert addAction:[ChoiceAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     UIViewController *top = self;
     while (top.presentedViewController) top = top.presentedViewController;
-    [top presentViewController:alert animated:YES completion:nil];
+    [alert presentFromViewController:top];
 }
 
 #pragma mark - Web page
