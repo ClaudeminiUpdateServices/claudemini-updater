@@ -17,9 +17,9 @@ def smooth(x, a, b):
     t = np.clip((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t)
 
 def dark_base():
-    top = np.array([47, 47, 52], np.float32); bot = np.array([18, 18, 21], np.float32)
+    top = np.array([34, 34, 38], np.float32); bot = np.array([13, 13, 15], np.float32)
     base = top * (1 - Y[..., None]) + bot * Y[..., None]
-    glow = np.exp(-(((X - .5) / .7) ** 2 + ((Y - 0.0) / .45) ** 2)) * 7
+    glow = np.exp(-(((X - .5) / .7) ** 2 + ((Y - 0.0) / .45) ** 2)) * 5
     return np.clip(base + glow[..., None], 0, 255)
 
 def grad(stops, angle=0.5):
@@ -53,7 +53,7 @@ def white_coverage(a):
         k = ((a - bg) * w).sum(axis=2) / np.maximum((w * w).sum(axis=2), 1)   # least squares over the 3 channels
         k = np.clip(k, 0, 1)
         mask = k < 0.01
-    return k
+    return k, bg
 
 def dark_glyph_coverage(a):
     # coloured glyph over a light background: coverage = distance from the background relative to the local core distance
@@ -84,25 +84,28 @@ def save(n, img):
 out = {}
 base = dark_base()
 
-def white_icon(name, stops, angle=0.5):
-    k = white_coverage(load(name))
-    out[name] = save(name, comp(base, grad(stops, angle), k))
+def white_icon(name):
+    # the white glyph takes exactly the colours of the original background gradient (fitted and carried under the glyph)
+    k, bg = white_coverage(load(name))
+    if len(sys.argv) > 2: print(name, 'bg corners TL/TR/BL/BR', [bg[y, x].round().tolist() for y, x in ((4, 4), (4, 175), (175, 4), (175, 175))])
+    # Dark gradients (Dopamine, Github) would vanish on the dark tile: lift them with one gain, same hues and same gradient
+    solid = k > 0.5
+    peak = np.percentile(bg.max(axis=2)[solid], 95)
+    if peak < 215:
+        gain = 215 / peak
+        top = bg[bg.max(axis=2) >= peak - 1].mean(axis=0)
+        bg = np.clip(bg * gain, 0, 255) * 0.82 + top * gain * 0.18
+    out[name] = save(name, comp(base, np.clip(bg, 0, 255), k))
 
-white_icon('SideStore', [(0, 222, 255), (92, 140, 255), (196, 66, 255)], 0.5)      # cyan -> blue -> violet
-white_icon('Dopamine',  [(170, 245, 90), (60, 214, 120), (14, 176, 150)], 0.7)       # lime -> green -> emerald
-white_icon('Sileo',     [(92, 250, 228), (24, 214, 206), (0, 168, 178)], 0.8)        # mint -> teal
-white_icon('Github',    [(255, 110, 140), (224, 52, 112), (150, 24, 92)], 0.75)       # coral -> raspberry -> wine
+for n in ('SideStore', 'Dopamine', 'Sileo', 'Github'): white_icon(n)
 
-# Chimera: silver / white gradient (its skin colour is white), clearly different from Dopamine
+# Chimera: the glyph keeps its own colours
 a = load('Chimera'); k, bg = dark_glyph_coverage(a)
-out['Chimera'] = save('Chimera', comp(base, grad([(255, 255, 255), (214, 226, 242), (150, 170, 200)], 0.75), k))
+out['Chimera'] = save('Chimera', comp(base, glyph_colour(a, bg, k), k))
 
 # Default: the original rainbow, colours recovered without the light background
 a = load('Default'); k, bg = dark_glyph_coverage(a)
 col = glyph_colour(a, bg, k)
-lum = col.mean(axis=2, keepdims=True)
-col = np.clip(lum + (col - lum) * 1.25, 0, 255)          # a little more saturation for the dark tile
-col = np.clip(col + (255 - col) * 0.06, 0, 255)
 out['Default'] = save('Default', comp(base, col, k))
 
 # LiveContainer: rounded plate, blue ring, dark tile with the blueprint grid, glyph in a blue gradient
@@ -112,7 +115,8 @@ plate = ndi.binary_fill_holes(frame_or_tile)                     # everything in
 plate_a = np.clip(ndi.gaussian_filter(plate.astype(np.float32), 0.7), 0, 1)
 tile_a = smooth(r, 150, 215) * plate_a                          # the white tile (grid lines are a little darker than it)
 ring_glyph = (1 - smooth(r, 25, 100)) * plate_a * (1 - tile_a)   # blue ring + glyph: coverage from the red channel
-plate_col = np.stack([54 - 22 * Y, 56 - 22 * Y, 66 - 24 * Y], -1)   # cool grey plate, lighter at the top
+_, lcbg = white_coverage(a)
+plate_col = base * 0.72 + lcbg * 0.28 + 6      # dark plate tinted with the original blue
 img = comp(base, plate_col, plate_a * 0.96)
 # 1 px light edge on the top of the plate
 edge = np.clip(plate_a - ndi.shift(plate_a, (2, 0), order=1, mode='nearest'), 0, 1)
@@ -121,8 +125,7 @@ tile_col = np.stack([12 + 6 * Y, 16 + 8 * Y, 30 + 14 * Y], -1)      # very dark 
 img = comp(img, tile_col, tile_a)
 grid = smooth(244 - a.min(axis=2), 6, 36) * tile_a              # the faint blueprint lines of the tile
 img = comp(img, np.array([44, 54, 84], np.float32), grid * 0.9)
-blue = grad([(96, 196, 255), (30, 132, 255), (24, 84, 255)], 0.7)
-img = comp(img, blue, ring_glyph)
+img = comp(img, a, ring_glyph)       # ring and glyph keep the exact blue of the original
 out['LiveContainer'] = save('LiveContainer', img)
 
 if len(sys.argv) > 1:
