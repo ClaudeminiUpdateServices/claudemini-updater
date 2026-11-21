@@ -47,6 +47,8 @@ static NSString *const kDarkKey = @"theme.dark";
 static NSString *const kAutoKey = @"theme.auto";
 static NSString *const kWallpaperKey = @"theme.wallpaper";
 static NSString *const kHelperIconKey = @"theme.helperIconSkin";
+static NSString *const kHelperIconDarkKey = @"theme.helperIconDark";
+static NSString *const kIconStyleDarkKey = @"theme.iconStyleDark";
 
 static ThemeSkin gSkin = ThemeSkinClaude;
 static BOOL gDark = NO;        // the manual choice (used when auto mode is off)
@@ -743,9 +745,19 @@ static NSString *WallpaperFileKey(NSInteger index) {
     }
 }
 
-+ (UIImage *)iconPreviewForSkin:(ThemeSkin)skin {
++ (NSString *)iconNameForSkin:(ThemeSkin)skin dark:(BOOL)dark {
     NSString *name = [self iconNameForSkin:skin];
-    NSString *file = [NSString stringWithFormat:@"Icon-%@@3x", name ?: @"Default"];
+    if (!dark) return name;                                       // nil = the default (light) icon
+    return [(name ?: @"Default") stringByAppendingString:@"-Dark"];
+}
+
++ (UIImage *)iconPreviewForSkin:(ThemeSkin)skin {
+    return [self iconPreviewForSkin:skin dark:NO];
+}
+
++ (UIImage *)iconPreviewForSkin:(ThemeSkin)skin dark:(BOOL)dark {
+    NSString *name = [self iconNameForSkin:skin];
+    NSString *file = [NSString stringWithFormat:@"Icon-%@%@@3x", name ?: @"Default", dark ? @"-Dark" : @""];
     static NSCache *cache;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ cache = [[NSCache alloc] init]; });
@@ -757,11 +769,20 @@ static NSString *WallpaperFileKey(NSInteger index) {
     return image;
 }
 
++ (BOOL)iconStyleDark {
+    return [[NSUserDefaults standardUserDefaults] boolForKey:kIconStyleDarkKey];
+}
+
++ (void)setIconStyleDark:(BOOL)dark {
+    [[NSUserDefaults standardUserDefaults] setBool:dark forKey:kIconStyleDarkKey];
+}
+
 // The picture of the icon that is in use now: the key screen and the greeting show the same icon as the Home Screen.
 + (UIImage *)activeIconImage {
     NSString *name = [self iconNameForSkin:[self activeIconSkin]];
-    if (name.length > 0) {
-        UIImage *image = [self iconPreviewForSkin:[self activeIconSkin]];
+    BOOL dark = [self activeIconDark];
+    if (name.length > 0 || dark) {
+        UIImage *image = [self iconPreviewForSkin:[self activeIconSkin] dark:dark];
         if (image) return image;
     }
     return [UIImage imageNamed:@"logo.png"];
@@ -776,11 +797,17 @@ static NSString *WallpaperFileKey(NSInteger index) {
 + (ThemeSkin)activeIconSkin {
     if ([self iconHelperAvailable]) return [self helperIconSkin];
     NSString *name = [self currentIconName];
-    if (name.length == 0) return ThemeSkinClaude;
+    if ([name hasSuffix:@"-Dark"]) name = [name substringToIndex:name.length - 5];
+    if (name.length == 0 || [name isEqualToString:@"Default"]) return ThemeSkinClaude;
     for (NSInteger i = ThemeSkinSideStore; i < ThemeSkinCount; i++) {
         if ([[self iconNameForSkin:(ThemeSkin)i] isEqualToString:name]) return (ThemeSkin)i;
     }
     return ThemeSkinClaude;
+}
+
++ (BOOL)activeIconDark {
+    if ([self iconHelperAvailable]) return [[NSUserDefaults standardUserDefaults] boolForKey:kHelperIconDarkKey];
+    return [[self currentIconName] hasSuffix:@"-Dark"];
 }
 
 + (NSString *)currentIconName {
@@ -803,17 +830,19 @@ static NSString *HelperPath(void) {
     return (value >= 0 && value < ThemeSkinCount) ? (ThemeSkin)value : ThemeSkinClaude;
 }
 
-+ (BOOL)applyIconWithHelperForSkin:(ThemeSkin)skin message:(NSString **)message {
++ (BOOL)applyIconWithHelperForSkin:(ThemeSkin)skin dark:(BOOL)dark message:(NSString **)message {
     if (![self iconHelperAvailable]) {
         if (message) *message = @"icon helper missing or not setuid";
         return NO;
     }
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSInteger previous = [defaults integerForKey:kHelperIconKey];
+    BOOL previousDark = [defaults boolForKey:kHelperIconDarkKey];
     [defaults setInteger:skin forKey:kHelperIconKey];   // saved first: uicache may restart the app
+    [defaults setBool:dark forKey:kHelperIconDarkKey];
     [defaults synchronize];
 
-    NSString *name = [self iconNameForSkin:skin] ?: @"Default";
+    NSString *name = [self iconNameForSkin:skin dark:dark] ?: @"Default";
     const char *path = HelperPath().fileSystemRepresentation;
     char *argv[] = { (char *)path, (char *)name.UTF8String, NULL };
     pid_t pid = 0;
@@ -832,6 +861,7 @@ static NSString *HelperPath(void) {
     }
     if (!ok) {
         [defaults setInteger:previous forKey:kHelperIconKey];
+        [defaults setBool:previousDark forKey:kHelperIconDarkKey];
         [defaults synchronize];
         if (message) *message = [NSString stringWithFormat:@"icon helper failed (code %d)", code];
     }
@@ -841,11 +871,12 @@ static NSString *HelperPath(void) {
 + (void)reapplyHelperIconIfNeeded {
     if (![self iconHelperAvailable]) return;
     ThemeSkin skin = [self helperIconSkin];
-    NSString *name = [self iconNameForSkin:skin] ?: @"Default";
+    BOOL dark = [self activeIconDark];
+    NSString *name = [self iconNameForSkin:skin dark:dark] ?: @"Default";
     NSString *dir = [NSBundle mainBundle].bundlePath;
     NSData *current = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:@"AppIcon60x60@3x.png"]];
     NSData *wanted = [NSData dataWithContentsOfFile:[dir stringByAppendingPathComponent:[NSString stringWithFormat:@"Icon-%@@3x.png", name]]];
-    if (current && wanted && ![current isEqualToData:wanted]) [self applyIconWithHelperForSkin:skin message:NULL];
+    if (current && wanted && ![current isEqualToData:wanted]) [self applyIconWithHelperForSkin:skin dark:dark message:NULL];
 }
 
 + (BOOL)respringWithHelper {
@@ -866,7 +897,8 @@ static NSString *HelperPath(void) {
 // data: URI of the chosen alternate icon (nil for the default icon). Cached per icon: the files never change at run time.
 + (NSString *)activeIconDataURI {
     ThemeSkin skin = [self activeIconSkin];
-    NSString *name = [self iconNameForSkin:skin];
+    BOOL dark = [self activeIconDark];
+    NSString *name = [self iconNameForSkin:skin dark:dark];
     if (name.length == 0) return nil;
     static NSMutableDictionary *cache = nil;
     static dispatch_once_t once;

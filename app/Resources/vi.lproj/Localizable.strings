@@ -290,3 +290,12 @@
 "voice_unavailable" = "Không dùng được nhận dạng giọng nói lúc này. Hãy kiểm tra kết nối mạng rồi thử lại.";
 "voice_no_speech" = "Không nghe thấy gì. Hãy bấm mic và nói lại.";
 "voice_failed" = "Không ghi âm được. Hãy thử lại.";
+"appearance_menu_icon" = "Icon ứng dụng";
+"appearance_menu_chat" = "Theme chat";
+"appearance_menu_accent" = "Màu nhấn";
+"appearance_accent_header" = "Màu nhấn";
+"appearance_icon_style_header" = "Kiểu icon";
+"icon_style_light" = "Sáng";
+"icon_style_dark" = "Tối";
+"icon_style_light_note" = "Icon nền sáng, màu như bản gốc";
+"icon_style_dark_note" = "Icon nền tối giống chế độ tối của iOS";

@@ -5,11 +5,12 @@
 #import "DiagnosticLog.h"
 
 typedef NS_ENUM(NSInteger, AppearanceSection) {
-    AppearanceSectionMode = 0,    // light / dark pictures + "Tự động"
-    AppearanceSectionSkin,
-    AppearanceSectionWallpaper,
-    AppearanceSectionIcon,
-    AppearanceSectionCount
+    AppearanceSectionMode = 0,    // light / dark pictures + "Tự động"      (root page)
+    AppearanceSectionMenu,        // App icon / Chat theme / Accent colour  (root page)
+    AppearanceSectionSkin,        // accent colours                         (accent page)
+    AppearanceSectionWallpaper,   // chat wallpapers                        (chat theme page)
+    AppearanceSectionIconStyle,   // light / dark icon pictures             (icon page)
+    AppearanceSectionIcon         // the icons                              (icon page)
 };
 
 // Wallpaper rows: 0 = follow the skin, 1 = none, 2...7 = wallpaper 1...6.
@@ -114,15 +115,45 @@ static const CGSize kModePreviewSize = { 84, 148 };
 @property (strong, nonatomic) UITableView *tableView;
 @property (assign, nonatomic) BOOL changingIcon;
 @property (assign, nonatomic) BOOL hasAppearedOnce;
+@property (assign, nonatomic) AppearancePage page;
 @end
 
 @implementation AppearanceViewController
+
+- (instancetype)initWithPage:(AppearancePage)page {
+    self = [super init];
+    if (self) _page = page;
+    return self;
+}
+
+- (instancetype)init {
+    return [self initWithPage:AppearancePageRoot];
+}
+
+// The sections shown on this page, in order.
+- (NSArray<NSNumber *> *)sections {
+    switch (self.page) {
+        case AppearancePageIcon:      return @[@(AppearanceSectionIconStyle), @(AppearanceSectionIcon)];
+        case AppearancePageChatTheme: return @[@(AppearanceSectionWallpaper)];
+        case AppearancePageAccent:    return @[@(AppearanceSectionSkin)];
+        default:                      return @[@(AppearanceSectionMode), @(AppearanceSectionMenu)];
+    }
+}
+
+- (AppearanceSection)sectionAtIndex:(NSInteger)index {
+    return (AppearanceSection)[[self sections][index] integerValue];
+}
 
 #pragma mark - Lifecycle
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = L(@"appearance_title");
+    switch (self.page) {
+        case AppearancePageIcon:      self.title = L(@"appearance_menu_icon"); break;
+        case AppearancePageChatTheme: self.title = L(@"appearance_menu_chat"); break;
+        case AppearancePageAccent:    self.title = L(@"appearance_menu_accent"); break;
+        default:                      self.title = L(@"appearance_title"); break;
+    }
     self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:nil];
 
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
@@ -173,11 +204,11 @@ static NSCache *ImageCache(void) {
     return cache;
 }
 
-- (UIImage *)cachedIconForSkin:(ThemeSkin)skin {
-    NSString *key = [NSString stringWithFormat:@"icon%ld", (long)skin];
+- (UIImage *)cachedIconForSkin:(ThemeSkin)skin dark:(BOOL)dark side:(CGFloat)side {
+    NSString *key = [NSString stringWithFormat:@"icon%ld-%d-%d", (long)skin, dark ? 1 : 0, (int)side];
     UIImage *image = [ImageCache() objectForKey:key];
     if (!image) {
-        image = [self roundedIcon:[Theme iconPreviewForSkin:skin] side:44];
+        image = [self roundedIcon:[Theme iconPreviewForSkin:skin dark:dark] side:side];
         if (image) [ImageCache() setObject:image forKey:key];
     }
     return image;
@@ -238,30 +269,33 @@ static NSCache *ImageCache(void) {
 #pragma mark - UITableViewDataSource
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return AppearanceSectionCount;
+    return (NSInteger)[self sections].count;
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    switch (section) {
+    switch ([self sectionAtIndex:section]) {
         case AppearanceSectionSkin:      return ThemeSkinCount;
         case AppearanceSectionMode:      return 2;   // picture row + "Tự động"
+        case AppearanceSectionMenu:      return 3;
         case AppearanceSectionWallpaper: return kWallpaperRowCount;
+        case AppearanceSectionIconStyle: return 2;   // light / dark
         default:                         return ThemeSkinCount;   // icons: default + one per skin
     }
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    switch (section) {
+    switch ([self sectionAtIndex:section]) {
         case AppearanceSectionMode:      return L(@"appearance_mode_header");
-        case AppearanceSectionSkin:      return L(@"appearance_skin_header");
+        case AppearanceSectionSkin:      return L(@"appearance_accent_header");
         case AppearanceSectionWallpaper: return L(@"appearance_wallpaper_header");
+        case AppearanceSectionIconStyle: return L(@"appearance_icon_style_header");
         case AppearanceSectionIcon:      return L(@"appearance_icon_header");
         default:                         return nil;
     }
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    switch (section) {
+    switch ([self sectionAtIndex:section]) {
         case AppearanceSectionSkin:      return L(@"appearance_skin_footer");
         case AppearanceSectionMode:      return L(@"appearance_auto_footer");
         case AppearanceSectionIcon:
@@ -269,6 +303,14 @@ static NSCache *ImageCache(void) {
             return [self iconsSupported] ? L(@"appearance_icon_footer") : L(@"appearance_icon_unsupported");
         default:                         return nil;
     }
+}
+
+// Short name of what is chosen now, shown on the right of the three entries on the first page.
+- (NSString *)wallpaperSummary {
+    NSInteger choice = [Theme wallpaperChoice];
+    if (choice == -1) return L(@"wallpaper_follow");
+    if (choice == 0) return L(@"wallpaper_none");
+    return [Theme wallpaperName:choice];
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
@@ -283,7 +325,33 @@ static NSCache *ImageCache(void) {
     selected.backgroundColor = [Theme selection];
     cell.selectedBackgroundView = selected;
 
-    switch (indexPath.section) {
+    switch ([self sectionAtIndex:indexPath.section]) {
+        case AppearanceSectionMenu: {
+            cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+            if (indexPath.row == 0) {
+                cell.imageView.image = [self cachedIconForSkin:[self currentIconSkin] dark:[Theme activeIconDark] side:34];
+                cell.textLabel.text = L(@"appearance_menu_icon");
+                cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", [Theme iconDisplayNameForSkin:[self currentIconSkin]], L([Theme activeIconDark] ? @"mode_dark" : @"mode_light")];
+            } else if (indexPath.row == 1) {
+                NSInteger index = [Theme effectiveWallpaperIndex];
+                cell.imageView.image = index > 0 ? [self cachedWallpaperThumb:index] : [self cachedSwatchForSkin:[Theme skin]];
+                cell.textLabel.text = L(@"appearance_menu_chat");
+                cell.detailTextLabel.text = [self wallpaperSummary];
+            } else {
+                cell.imageView.image = [self cachedSwatchForSkin:[Theme skin]];
+                cell.textLabel.text = L(@"appearance_menu_accent");
+                cell.detailTextLabel.text = [Theme skinName:[Theme skin]];
+            }
+            break;
+        }
+        case AppearanceSectionIconStyle: {
+            BOOL dark = indexPath.row == 1;
+            cell.imageView.image = [self cachedIconForSkin:[self currentIconSkin] dark:dark side:44];
+            cell.textLabel.text = L(dark ? @"icon_style_dark" : @"icon_style_light");
+            cell.detailTextLabel.text = L(dark ? @"icon_style_dark_note" : @"icon_style_light_note");
+            cell.accessoryType = ([Theme iconStyleDark] == dark) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+            break;
+        }
         case AppearanceSectionSkin: {
             ThemeSkin skin = (ThemeSkin)indexPath.row;
             cell.imageView.image = [self cachedSwatchForSkin:skin];
@@ -341,10 +409,12 @@ static NSCache *ImageCache(void) {
         }
         default: {
             ThemeSkin skin = (ThemeSkin)indexPath.row;
-            cell.imageView.image = [self cachedIconForSkin:skin];
+            BOOL styleDark = [Theme iconStyleDark];
+            cell.imageView.image = [self cachedIconForSkin:skin dark:styleDark side:44];
             cell.textLabel.text = [Theme iconDisplayNameForSkin:skin];   // "SideStore", "LiveContainer"... without the word "Skin"
             cell.detailTextLabel.text = nil;
-            cell.accessoryType = (skin == [self currentIconSkin]) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+            BOOL current = (skin == [self currentIconSkin]) && ([Theme activeIconDark] == styleDark);
+            cell.accessoryType = current ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
             break;
         }
     }
@@ -362,15 +432,25 @@ static NSCache *ImageCache(void) {
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (indexPath.section == AppearanceSectionMode && indexPath.row == 0) return 16 + kModePreviewSize.height + 36 + 24 + 14;
-    if (indexPath.section == AppearanceSectionIcon) return 62;
-    if (indexPath.section == AppearanceSectionWallpaper && indexPath.row >= 1) return 64;
+    AppearanceSection section = [self sectionAtIndex:indexPath.section];
+    if (section == AppearanceSectionMode && indexPath.row == 0) return 16 + kModePreviewSize.height + 36 + 24 + 14;
+    if (section == AppearanceSectionIcon || section == AppearanceSectionIconStyle) return 62;
+    if (section == AppearanceSectionWallpaper && indexPath.row >= 1) return 64;
+    if (section == AppearanceSectionMenu) return 56;
     return 56;
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    switch (indexPath.section) {
+    switch ([self sectionAtIndex:indexPath.section]) {
+        case AppearanceSectionMenu: {
+            AppearancePage next = indexPath.row == 0 ? AppearancePageIcon : (indexPath.row == 1 ? AppearancePageChatTheme : AppearancePageAccent);
+            [self.navigationController pushViewController:[[AppearanceViewController alloc] initWithPage:next] animated:YES];
+            break;
+        }
+        case AppearanceSectionIconStyle:
+            [self chooseIconStyleDark:indexPath.row == 1];
+            break;
         case AppearanceSectionSkin:
             [self chooseSkin:(ThemeSkin)indexPath.row];
             break;
@@ -384,7 +464,7 @@ static NSCache *ImageCache(void) {
             break;
         }
         case AppearanceSectionIcon:
-            [self changeIconToSkin:(ThemeSkin)indexPath.row];
+            [self changeIconToSkin:(ThemeSkin)indexPath.row dark:[Theme iconStyleDark]];
             break;
         default:
             break;
@@ -418,33 +498,42 @@ static NSCache *ImageCache(void) {
     [Theme postChange];
 
     // Each skin has its own icon: offer to switch the Home Screen icon too (iOS shows its own confirmation).
-    if (skin != ThemeSkinClaude && [self iconsSupported] && [self currentIconSkin] != skin) {
+    BOOL iconDark = [Theme iconStyleDark];
+    if (skin != ThemeSkinClaude && [self iconsSupported] && ([self currentIconSkin] != skin || [Theme activeIconDark] != iconDark)) {
         UIAlertController *alert = [UIAlertController alertControllerWithTitle:L(@"icon_offer_title")
                                                                        message:[NSString stringWithFormat:L(@"icon_offer_msg"), [Theme iconDisplayNameForSkin:skin]]
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:L(@"icon_offer_no") style:UIAlertActionStyleCancel handler:nil]];
         __weak typeof(self) weakSelf = self;
         [alert addAction:[UIAlertAction actionWithTitle:L(@"icon_offer_yes") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
-            [weakSelf changeIconToSkin:skin];
+            [weakSelf changeIconToSkin:skin dark:iconDark];
         }]];
         [self presentViewController:alert animated:YES completion:nil];
     }
 }
 
-- (void)changeIconToSkin:(ThemeSkin)skin {
+// Light or dark pictures: remembered, and the icon that is on the Home Screen switches to the same style.
+- (void)chooseIconStyleDark:(BOOL)dark {
+    if ([Theme iconStyleDark] == dark && [Theme activeIconDark] == dark) return;
+    [Theme setIconStyleDark:dark];
+    [self.tableView reloadData];
+    if ([self iconsSupported] && !self.changingIcon) [self changeIconToSkin:[self currentIconSkin] dark:dark];
+}
+
+- (void)changeIconToSkin:(ThemeSkin)skin dark:(BOOL)dark {
     if (self.changingIcon) return;
     if (![self iconsSupported]) {
         [self showMessage:L(@"appearance_icon_unsupported")];
         return;
     }
-    if (skin == [self currentIconSkin]) return;
+    if (skin == [self currentIconSkin] && dark == [Theme activeIconDark]) return;
 
     if ([Theme iconHelperAvailable]) {
         self.changingIcon = YES;
         __weak typeof(self) weakSelf = self;
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
             NSString *failure = nil;
-            BOOL ok = [Theme applyIconWithHelperForSkin:skin message:&failure];
+            BOOL ok = [Theme applyIconWithHelperForSkin:skin dark:dark message:&failure];
             dispatch_async(dispatch_get_main_queue(), ^{
                 AppearanceViewController *me = weakSelf;
                 if (!me) return;
@@ -464,7 +553,7 @@ static NSCache *ImageCache(void) {
     }
     if (@available(iOS 10.3, *)) {
         self.changingIcon = YES;
-        NSString *name = [Theme iconNameForSkin:skin];   // nil = back to the default icon
+        NSString *name = [Theme iconNameForSkin:skin dark:dark];   // nil = back to the default (light) icon
         __weak typeof(self) weakSelf = self;
         [[UIApplication sharedApplication] setAlternateIconName:name completionHandler:^(NSError *error) {
             dispatch_async(dispatch_get_main_queue(), ^{

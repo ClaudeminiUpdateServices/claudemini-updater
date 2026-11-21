@@ -289,3 +289,12 @@
 "voice_unavailable" = "Speech recognition is not available right now. Check your connection and try again.";
 "voice_no_speech" = "Nothing was heard. Tap the mic and speak again.";
 "voice_failed" = "Could not record. Please try again.";
+"appearance_menu_icon" = "App icon";
+"appearance_menu_chat" = "Chat theme";
+"appearance_menu_accent" = "Accent colour";
+"appearance_accent_header" = "Accent colour";
+"appearance_icon_style_header" = "Icon style";
+"icon_style_light" = "Light";
+"icon_style_dark" = "Dark";
+"icon_style_light_note" = "Original bright icons";
+"icon_style_dark_note" = "Dark icons like iOS dark mode";

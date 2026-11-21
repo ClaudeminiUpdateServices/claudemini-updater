@@ -83,6 +83,11 @@ typedef NS_ENUM(NSInteger, ThemeSkin) {
 
 + (NSString *)iconNameForSkin:(ThemeSkin)skin;       // key in CFBundleAlternateIcons; nil for the default icon
 + (UIImage *)iconPreviewForSkin:(ThemeSkin)skin;
++ (NSString *)iconNameForSkin:(ThemeSkin)skin dark:(BOOL)dark;   // key in CFBundleAlternateIcons for the light or dark picture ("SideStore-Dark", "Default-Dark"...)
++ (UIImage *)iconPreviewForSkin:(ThemeSkin)skin dark:(BOOL)dark;
++ (BOOL)iconStyleDark;                                // the style picked in Settings > Appearance > App icon (light or dark pictures)
++ (void)setIconStyleDark:(BOOL)dark;
++ (BOOL)activeIconDark;                               // the Home Screen icon in use is the dark picture
 + (NSString *)iconDisplayNameForSkin:(ThemeSkin)skin;   // "SideStore", "LiveContainer"... (no "Skin"); "Mặc định" for the default icon
 + (UIImage *)activeIconImage;                         // picture of the icon in use (the logo for the default icon)
 + (ThemeSkin)activeIconSkin;                          // the icon that is on the Home Screen now (ThemeSkinClaude = default)
@@ -93,7 +98,7 @@ typedef NS_ENUM(NSInteger, ThemeSkin) {
 // system API does not update the Home Screen for apps installed in /Applications.
 + (BOOL)iconHelperAvailable;
 + (ThemeSkin)helperIconSkin;                         // the skin whose icon the helper last applied
-+ (BOOL)applyIconWithHelperForSkin:(ThemeSkin)skin message:(NSString **)message;   // blocking: call off the main thread
++ (BOOL)applyIconWithHelperForSkin:(ThemeSkin)skin dark:(BOOL)dark message:(NSString **)message;   // blocking: call off the main thread
 + (void)reapplyHelperIconIfNeeded;                   // e.g. after the .deb was upgraded and reset the icon files
 
 #pragma mark - Web page
