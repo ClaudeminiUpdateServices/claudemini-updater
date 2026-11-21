@@ -8,6 +8,7 @@
 #import "MiniNavigationController.h"
 #import "UpdateManager.h"
 #import "InstructionFile.h"
+#import "AppSettings.h"
 
 @interface AppDelegate ()
 @property (assign, nonatomic) BOOL showingMain;
@@ -34,6 +35,11 @@
                                                  name:kNotifLanguageChanged
                                                object:nil];
 
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(layoutModeChanged)
+                                                 name:kNotifLayoutChanged
+                                               object:nil];
+
     [NSTimer scheduledTimerWithTimeInterval:60 target:self selector:@selector(autoThemeTick) userInfo:nil repeats:YES];
 
     [self applyKeyState];
@@ -43,6 +49,19 @@
         [[UpdateManager shared] checkForUpdateForce:NO];
     });
     return YES;
+}
+
+// Which orientations the app may use follows the layout chosen in Settings (phone = portrait only).
+- (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+    return [AppSettings allowedOrientations];
+}
+
+// Phone layout chosen while the device is on its side: bring it back upright. Otherwise let iOS pick up the new allowance.
+- (void)layoutModeChanged {
+    if ([AppSettings layoutMode] == 1 && UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation)) {
+        [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
+    }
+    [UIViewController attemptRotationToDeviceOrientation];
 }
 
 // A .clmn instruction file opened with ClaudeMini (Files, share sheet, AirDrop): its text goes into the AI instructions.

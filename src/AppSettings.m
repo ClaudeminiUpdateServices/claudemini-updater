@@ -15,6 +15,9 @@ static NSString *const kDailyBudgetKey = @"dailyTokenBudget";
 static NSString *const kUiScaleKey = @"uiScale";
 static NSString *const kFontStyleKey = @"fontStyle";
 static NSString *const kVoiceAutoPlayKey = @"voiceAutoPlay";
+static NSString *const kLayoutModeKey = @"layoutMode";
+static NSString *const kDuoSidebarSizeKey = @"duoSidebarSize";
+static NSString *const kDuoSidebarCollapsedKey = @"duoSidebarCollapsed";
 
 static NSString *gPromptTextCache = nil;
 static BOOL gPromptTextCacheLoaded = NO;
@@ -284,6 +287,48 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
     if (scale > 1.4) scale = 1.4;
     [[NSUserDefaults standardUserDefaults] setDouble:(double)scale forKey:kUiScaleKey];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil userInfo:@{@"uiScale": @(scale)}];
+}
+
++ (NSInteger)layoutMode {
+    NSInteger mode = [[NSUserDefaults standardUserDefaults] integerForKey:kLayoutModeKey];
+    return (mode >= 0 && mode <= 2) ? mode : 0;
+}
++ (void)setLayoutMode:(NSInteger)mode {
+    [[NSUserDefaults standardUserDefaults] setInteger:(mode >= 0 && mode <= 2) ? mode : 0 forKey:kLayoutModeKey];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"ClaudeMiniLayoutChanged" object:nil];
+}
+
++ (NSInteger)duoSidebarSize {
+    id value = [[NSUserDefaults standardUserDefaults] objectForKey:kDuoSidebarSizeKey];
+    NSInteger size = value ? [value integerValue] : 1;
+    return (size >= 0 && size <= 2) ? size : 1;
+}
++ (void)setDuoSidebarSize:(NSInteger)size {
+    [[NSUserDefaults standardUserDefaults] setInteger:(size >= 0 && size <= 2) ? size : 1 forKey:kDuoSidebarSizeKey];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"ClaudeMiniLayoutChanged" object:nil];
+}
++ (CGFloat)duoSidebarBaseWidth {
+    switch ([self duoSidebarSize]) {
+        case 0: return 260;
+        case 2: return 380;
+        default: return 320;
+    }
+}
+
++ (BOOL)duoSidebarCollapsed { return [[NSUserDefaults standardUserDefaults] boolForKey:kDuoSidebarCollapsedKey]; }
++ (void)setDuoSidebarCollapsed:(BOOL)collapsed { [[NSUserDefaults standardUserDefaults] setBool:collapsed forKey:kDuoSidebarCollapsedKey]; }
+
++ (BOOL)duoActiveForSize:(CGSize)size {
+    switch ([self layoutMode]) {
+        case 1: return NO;
+        case 2: return size.width >= 520 && size.width > size.height;   // iPhone Duo: any landscape screen
+        default: return size.width >= 700 && size.height >= 500;         // automatic: only a really wide screen (tablet, Duo)
+    }
+}
+
+// Phone mode keeps the app upright; the other modes also allow landscape (never upside down).
++ (UIInterfaceOrientationMask)allowedOrientations {
+    return [self layoutMode] == 1 ? UIInterfaceOrientationMaskPortrait : UIInterfaceOrientationMaskAllButUpsideDown;
 }
 
 + (NSInteger)fontStyle {

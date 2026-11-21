@@ -156,6 +156,7 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 
 // Half-width History Drawer + shifted Chat Stage
 @property (assign, nonatomic) BOOL historyDrawerOpen;
+@property (assign, nonatomic) BOOL historyPinned;   // iPhone Duo / wide screen: the history list is a fixed pane on the left
 @property (strong, nonatomic) UIView *historyDrawerView;
 @property (strong, nonatomic) UIView *historySearchWrap;
 @property (strong, nonatomic) UIImageView *historySearchIcon;
@@ -280,6 +281,7 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
     [center addObserver:self selector:@selector(historyCleared:) name:kNotifHistoryCleared object:nil];
     [center addObserver:self selector:@selector(conversationDeleted:) name:kNotifConversationDeleted object:nil];
     [center addObserver:self selector:@selector(applyTheme) name:kNotifThemeChanged object:nil];
+    [center addObserver:self selector:@selector(layoutChanged) name:kNotifLayoutChanged object:nil];
     [center addObserver:self selector:@selector(updateStateChanged) name:kNotifUpdateChanged object:nil];
 
     NSMutableSet *keep = [NSMutableSet set];
@@ -382,7 +384,33 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
 - (CGFloat)historyDrawerWidth {
     CGFloat w = self.view.bounds.size.width;
-    return MIN(floor(w * kDrawerWidthRatio), 320.0);
+    CGFloat safeLeft = 0;
+    if (@available(iOS 11.0, *)) safeLeft = self.view.safeAreaInsets.left;   // the notch side of a phone on its side
+    if ([self duoActive]) return MIN(floor(w * 0.5), [AppSettings duoSidebarBaseWidth]) + safeLeft;
+    return MIN(floor(w * kDrawerWidthRatio), 320.0) + safeLeft;
+}
+
+// iPhone Duo / wide screen: two panes (the history list stays on the left of the chat).
+- (BOOL)duoActive {
+    return [AppSettings duoActiveForSize:self.view.bounds.size];
+}
+
+- (BOOL)duoPinned {
+    return [self duoActive] && ![AppSettings duoSidebarCollapsed];
+}
+
+// Rotation, another layout chosen in Settings, or the left pane folded away: lay everything out again, smoothly.
+- (void)layoutChanged {
+    [self.view endEditing:YES];
+    [UIView animateWithDuration:0.28 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{
+        [self.view setNeedsLayout];
+        [self.view layoutIfNeeded];
+    } completion:nil];
+}
+
+// The pinned list shows the open chat highlighted: refresh it when the chats change.
+- (void)refreshPinnedSidebar {
+    if (self.historyPinned) [self reloadHistoryItems];
 }
 
 - (void)setupHistoryDrawer {
@@ -425,6 +453,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.historyTableView.backgroundColor = [UIColor clearColor];
     self.historyTableView.separatorColor = [Theme border];
     self.historyTableView.separatorInset = UIEdgeInsetsMake(0, 16, 0, 0);
+    self.historyTableView.cellLayoutMarginsFollowReadableWidth = NO;
     self.historyTableView.tableFooterView = [[UIView alloc] initWithFrame:CGRectZero];
     self.historyTableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     self.historyTableView.dataSource = self;
@@ -580,11 +609,20 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 - (CGPoint)chatStageCenterOpen:(BOOL)open {
     CGFloat w = self.view.bounds.size.width;
     CGFloat h = self.view.bounds.size.height;
-    return CGPointMake(w / 2.0 + (open ? [self historyDrawerWidth] : 0), h / 2.0);
+    UIEdgeInsets safe = UIEdgeInsetsZero;
+    if (@available(iOS 11.0, *)) safe = self.view.safeAreaInsets;
+    CGFloat contentW = w - safe.left - safe.right;          // the stage keeps clear of the notch when the phone is on its side
+    return CGPointMake(safe.left + contentW / 2.0 + (open ? [self historyDrawerWidth] - safe.left : 0), h / 2.0);
 }
 
 - (void)historyTapped {
     [self.view endEditing:YES];
+    if ([self duoActive]) {
+        // Two panes: the menu button folds the left pane away or brings it back.
+        [AppSettings setDuoSidebarCollapsed:![AppSettings duoSidebarCollapsed]];
+        [self layoutChanged];
+        return;
+    }
     if (self.historyDrawerOpen) {
         [self closeHistoryDrawer];
         return;
@@ -663,6 +701,8 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     NSString *title = [item[@"title"] isKindOfClass:[NSString class]] && [item[@"title"] length] > 0 ? item[@"title"] : L(@"history_title");
     cell.textLabel.text = title;
     cell.textLabel.textColor = [Theme text];
+    BOOL isOpen = self.historyPinned && [item[@"id"] isKindOfClass:[NSString class]] && [item[@"id"] isEqualToString:self.conversation[@"id"]];
+    cell.backgroundColor = isOpen ? [[Theme accent] colorWithAlphaComponent:0.12] : [UIColor clearColor];
     return cell;
 }
 
@@ -693,12 +733,17 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     }
     BOOL keyboardUp = self.keyboardOverlap > 0 && self.historySearchField.isFirstResponder;
 
+    CGFloat leftSafe = 0;
+    if (@available(iOS 11.0, *)) leftSafe = self.view.safeAreaInsets.left;
     CGFloat rowH = 38;                       // search pill and close button share one row
     CGFloat closeSize = rowH;
     CGFloat sideGap = 12;
+    CGFloat sideX = sideGap + leftSafe;      // left edge of the content, clear of the notch
+    CGFloat sideW = dw - sideX - sideGap;
+    CGFloat closeW = self.historyPinned ? 0 : closeSize + 8;   // no close button in the fixed pane
     self.historyCloseXButton.frame = CGRectMake(dw - sideGap - closeSize, topPad, closeSize, closeSize);
     self.historyCloseXButton.layer.cornerRadius = closeSize / 2.0;
-    self.historySearchWrap.frame = CGRectMake(sideGap, topPad, MAX(60, dw - sideGap * 2 - closeSize - 8), rowH);
+    self.historySearchWrap.frame = CGRectMake(sideX, topPad, MAX(60, sideW - closeW), rowH);
     CGFloat sw = self.historySearchWrap.bounds.size.width;
     self.historySearchIcon.frame = CGRectMake(10, (rowH - 16) / 2.0, 16, 16);
     self.historySearchField.frame = CGRectMake(32, 0, MAX(20, sw - 32 - 8), rowH);
@@ -706,7 +751,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     CGFloat settingsH = 52;
     CGFloat settingsY = dh - bottomPad - settingsH;
     self.historySettingsButton.hidden = keyboardUp;
-    self.historySettingsButton.frame = CGRectMake(sideGap, settingsY, dw - sideGap * 2, settingsH);
+    self.historySettingsButton.frame = CGRectMake(sideX, settingsY, sideW, settingsH);
     CGFloat bw = self.historySettingsButton.bounds.size.width;
     self.historySettingsBadge.frame = CGRectMake(10, (settingsH - 32) / 2.0, 32, 32);
     self.historySettingsIcon.frame = self.historySettingsBadge.bounds;
@@ -717,7 +762,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     CGFloat listTop = topPad + rowH + 10;
     CGFloat listBottom = keyboardUp ? (dh - self.keyboardOverlap - 8) : (settingsY - 10);
     self.historyTableView.frame = CGRectMake(0, listTop, dw, MAX(60, listBottom - listTop));
-    self.historyEmptyLabel.frame = CGRectMake(16, listTop + 24, dw - 32, 44);
+    self.historyEmptyLabel.frame = CGRectMake(16 + leftSafe, listTop + 24, dw - 32 - leftSafe, 44);
 }
 
 #pragma mark - Setup
@@ -885,10 +930,36 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [super viewDidLayoutSubviews];
     CGFloat w = self.view.bounds.size.width;
     CGFloat h = self.view.bounds.size.height;
+    UIEdgeInsets safe = UIEdgeInsetsZero;
+    if (@available(iOS 11.0, *)) safe = self.view.safeAreaInsets;
     CGFloat drawerW = [self historyDrawerWidth];
+    BOOL pinned = [self duoPinned];
+    BOOL wasPinned = self.historyPinned;
+    self.historyPinned = pinned;
+
+    if (pinned) {
+        // Two panes: list on the left, chat on the right. The overlay drawer is not used.
+        if (self.historyDrawerOpen || self.historyDrawerAnimating) {
+            self.historyDrawerOpen = NO;
+            self.historyDrawerAnimating = NO;
+            [self callJS:@"setDrawer" args:@[@NO]];
+        }
+        CGFloat stageW = MAX(240, w - drawerW - safe.right);
+        self.chatStageView.bounds = CGRectMake(0, 0, stageW, h);
+        self.chatStageView.center = CGPointMake(drawerW + stageW / 2.0, h / 2.0);
+        self.historyDrawerView.hidden = NO;
+        self.historyDrawerView.frame = CGRectMake(0, 0, drawerW, h);
+        self.historyCloseXButton.hidden = YES;
+        self.chatRightOverlayButton.hidden = YES;
+        if (!wasPinned) [self reloadHistoryItems];
+        [self layoutHistoryDrawerSubviews];
+        [self layoutChatStageSubviews];
+        return;
+    }
+    self.historyCloseXButton.hidden = NO;
 
     // The stage keeps its full size at all times (so the greeting never re-wraps); the drawer only moves it sideways.
-    self.chatStageView.bounds = CGRectMake(0, 0, w, h);
+    self.chatStageView.bounds = CGRectMake(0, 0, MAX(200, w - safe.left - safe.right), h);
     if (!self.historyDrawerAnimating) {
         self.chatStageView.center = [self chatStageCenterOpen:self.historyDrawerOpen];
     }
@@ -1733,6 +1804,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [ModelStore setSelectedModelId:modelId];
     self.conversation[@"model"] = modelId;
     if ([self.conversation[@"messages"] count] > 0) [ConversationStore saveConversation:self.conversation];
+    [self refreshPinnedSidebar];
     [self updateModelTitle];
     [self updateToolButtons];
 }
@@ -1814,6 +1886,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self updateSendButton];
     [self unlockWebViewScrolling];
     [self reassertEmptyLockSoon];
+    [self refreshPinnedSidebar];
 }
 
 // The page scroll position is native state too (UIScrollView). If it is left at, say, 3000 pt when the page becomes one
@@ -1851,6 +1924,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self renderConversation];
     [self updateSendButton];
     [self unlockWebViewScrolling];
+    [self refreshPinnedSidebar];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(80 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
         [self unlockWebViewScrolling];
     });
@@ -2527,6 +2601,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     self.conversation[@"model"] = self.model;
     self.conversation[@"updated"] = @([[NSDate date] timeIntervalSince1970]);
     [ConversationStore saveConversation:self.conversation];
+    [self refreshPinnedSidebar];
 
     [self callJS:@"addUser" args:@[text, [self webAttachmentsFrom:attachments conversation:cid], @([messages count] - 1)]];
     [self.pendingAttachments removeAllObjects];
@@ -3058,6 +3133,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     [messages addObject:message];
     self.conversation[@"updated"] = @([[NSDate date] timeIntervalSince1970]);
     [ConversationStore saveConversation:self.conversation];
+    [self refreshPinnedSidebar];
 }
 
 - (void)abandonStream {
@@ -3109,6 +3185,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
 
     self.conversation[@"updated"] = @([[NSDate date] timeIntervalSince1970]);
     [ConversationStore saveConversation:self.conversation];
+    [self refreshPinnedSidebar];
     [self renderConversation];
     [self refreshAttachStrip];
     self.textView.text = text;
@@ -3124,6 +3201,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     if (![messages.lastObject[@"role"] isEqualToString:@"user"]) return;
     self.conversation[@"updated"] = @([[NSDate date] timeIntervalSince1970]);
     [ConversationStore saveConversation:self.conversation];
+    [self refreshPinnedSidebar];
     [self renderConversation];
     [self startStreamingReply];
 }

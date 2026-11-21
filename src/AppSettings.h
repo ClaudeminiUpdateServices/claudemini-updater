@@ -1,4 +1,4 @@
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -36,6 +36,18 @@ typedef NS_ENUM(NSInteger, AIReasoningLevel) {
 
 // Thu nhỏ / phóng to chữ & giao diện (0.85 = nhỏ, 1.0 = mặc định, 1.15 = lớn). Áp dụng cho tin nhắn và ô nhập.
 + (CGFloat)uiScale;
+// Screen layout. 0 = automatic (two panes when the screen is wide), 1 = phone (one pane, portrait only), 2 = iPhone Duo
+// (history list on the left, chat on the right, landscape allowed).
++ (NSInteger)layoutMode;
++ (void)setLayoutMode:(NSInteger)mode;
++ (NSInteger)duoSidebarSize;          // 0 narrow, 1 medium, 2 wide
++ (void)setDuoSidebarSize:(NSInteger)size;
++ (CGFloat)duoSidebarBaseWidth;       // points for the chosen size
++ (BOOL)duoSidebarCollapsed;          // the left pane was folded away with the menu button
++ (void)setDuoSidebarCollapsed:(BOOL)collapsed;
++ (BOOL)duoActiveForSize:(CGSize)size;   // two panes for a view of this size?
++ (UIInterfaceOrientationMask)allowedOrientations;
+
 + (NSInteger)fontStyle;               // 0 = Claude (serif titles and answers), 1 = system font
 + (void)setFontStyle:(NSInteger)style;
 + (void)setUiScale:(CGFloat)scale;

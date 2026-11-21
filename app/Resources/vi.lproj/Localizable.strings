@@ -309,3 +309,17 @@
 "instr_err_read" = "Không đọc được tệp này. Hãy chọn tệp văn bản (.clmn hoặc .txt).";
 "instr_err_empty" = "Tệp này trống.";
 "instr_err_big" = "Tệp quá lớn để làm chỉ dẫn.";
+"appearance_menu_duo" = "iPhone Duo";
+"duo_layout_header" = "Bố cục màn hình";
+"duo_layout_footer" = "iPhone Duo: danh sách trò chuyện nằm cố định bên trái, khung chat bên phải, và app cho xoay ngang. Điện thoại: một khung, chỉ dọc. Tự động: chỉ chia hai khung khi màn hình đủ rộng. Nút menu trên cùng gập hoặc mở lại khung bên trái.";
+"duo_mode_auto" = "Tự động";
+"duo_mode_auto_note" = "Hai khung khi màn hình đủ rộng";
+"duo_mode_phone" = "Điện thoại";
+"duo_mode_phone_note" = "Một khung, chỉ xoay dọc";
+"duo_mode_duo" = "iPhone Duo (hai khung)";
+"duo_mode_duo_note" = "Danh sách bên trái, chat bên phải, xoay ngang";
+"duo_sidebar_header" = "Khung bên trái";
+"duo_sidebar_footer" = "Độ rộng của danh sách trò chuyện khi hiển thị hai khung.";
+"duo_sidebar_narrow" = "Hẹp";
+"duo_sidebar_medium" = "Vừa";
+"duo_sidebar_wide" = "Rộng";

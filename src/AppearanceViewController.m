@@ -11,7 +11,9 @@ typedef NS_ENUM(NSInteger, AppearanceSection) {
     AppearanceSectionSkin,        // accent colours                         (accent page)
     AppearanceSectionWallpaper,   // chat wallpapers                        (chat theme page)
     AppearanceSectionIconStyle,   // light / dark icon pictures             (icon page)
-    AppearanceSectionIcon         // the icons                              (icon page)
+    AppearanceSectionIcon,        // the icons                              (icon page)
+    AppearanceSectionLayout,      // automatic / phone / iPhone Duo         (Duo page)
+    AppearanceSectionSidebar      // width of the left pane                 (Duo page)
 };
 
 // Wallpaper rows: 0 = follow the skin, 1 = none, 2...7 = wallpaper 1...6.
@@ -137,6 +139,7 @@ static const CGSize kModePreviewSize = { 84, 148 };
         case AppearancePageIcon:      return @[@(AppearanceSectionIconStyle), @(AppearanceSectionIcon)];
         case AppearancePageChatTheme: return @[@(AppearanceSectionWallpaper)];
         case AppearancePageAccent:    return @[@(AppearanceSectionSkin)];
+        case AppearancePageDuo:       return @[@(AppearanceSectionLayout), @(AppearanceSectionSidebar)];
         default:                      return @[@(AppearanceSectionMode), @(AppearanceSectionMenu)];
     }
 }
@@ -153,11 +156,13 @@ static const CGSize kModePreviewSize = { 84, 148 };
         case AppearancePageIcon:      self.title = L(@"appearance_menu_icon"); break;
         case AppearancePageChatTheme: self.title = L(@"appearance_menu_chat"); break;
         case AppearancePageAccent:    self.title = L(@"appearance_menu_accent"); break;
+        case AppearancePageDuo:       self.title = L(@"appearance_menu_duo"); break;
         default:                      self.title = L(@"appearance_title"); break;
     }
     self.navigationItem.backBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"" style:UIBarButtonItemStylePlain target:nil action:nil];
 
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleGrouped];
+    self.tableView.cellLayoutMarginsFollowReadableWidth = YES;   // wide screens: rows stay a comfortable width
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.tableView.dataSource = self;
     self.tableView.delegate = self;
@@ -277,7 +282,9 @@ static NSCache *ImageCache(void) {
     switch ([self sectionAtIndex:section]) {
         case AppearanceSectionSkin:      return ThemeSkinCount;
         case AppearanceSectionMode:      return 2;   // picture row + "Tự động"
-        case AppearanceSectionMenu:      return 3;
+        case AppearanceSectionMenu:      return 4;
+        case AppearanceSectionLayout:    return 3;
+        case AppearanceSectionSidebar:   return 3;
         case AppearanceSectionWallpaper: return kWallpaperRowCount;
         case AppearanceSectionIconStyle: return 2;   // light / dark
         default:                         return ThemeSkinCount;   // icons: default + one per skin
@@ -291,12 +298,16 @@ static NSCache *ImageCache(void) {
         case AppearanceSectionWallpaper: return L(@"appearance_wallpaper_header");
         case AppearanceSectionIconStyle: return L(@"appearance_icon_style_header");
         case AppearanceSectionIcon:      return L(@"appearance_icon_header");
+        case AppearanceSectionLayout:    return L(@"duo_layout_header");
+        case AppearanceSectionSidebar:   return L(@"duo_sidebar_header");
         default:                         return nil;
     }
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
     switch ([self sectionAtIndex:section]) {
+        case AppearanceSectionLayout:    return L(@"duo_layout_footer");
+        case AppearanceSectionSidebar:   return L(@"duo_sidebar_footer");
         case AppearanceSectionSkin:      return L(@"appearance_skin_footer");
         case AppearanceSectionMode:      return L(@"appearance_auto_footer");
         case AppearanceSectionIcon:
@@ -338,11 +349,31 @@ static NSCache *ImageCache(void) {
                 cell.imageView.image = index > 0 ? [self cachedWallpaperThumb:index] : [self cachedSwatchForSkin:[Theme skin]];
                 cell.textLabel.text = L(@"appearance_menu_chat");
                 cell.detailTextLabel.text = [self wallpaperSummary];
-            } else {
+            } else if (indexPath.row == 2) {
                 cell.imageView.image = [self cachedSwatchForSkin:[Theme skin]];
                 cell.textLabel.text = L(@"appearance_menu_accent");
                 cell.detailTextLabel.text = [Theme skinName:[Theme skin]];
+            } else {
+                cell.imageView.image = [self duoGlyphImage];
+                cell.textLabel.text = L(@"appearance_menu_duo");
+                cell.detailTextLabel.text = [self layoutModeName:[AppSettings layoutMode]];
             }
+            break;
+        }
+        case AppearanceSectionLayout: {
+            NSInteger mode = indexPath.row;
+            cell.imageView.image = [self layoutGlyphForMode:mode];
+            cell.textLabel.text = [self layoutModeName:mode];
+            cell.detailTextLabel.text = L(mode == 0 ? @"duo_mode_auto_note" : (mode == 1 ? @"duo_mode_phone_note" : @"duo_mode_duo_note"));
+            cell.accessoryType = ([AppSettings layoutMode] == mode) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+            break;
+        }
+        case AppearanceSectionSidebar: {
+            NSInteger size = indexPath.row;
+            cell.imageView.image = [self sidebarGlyphForSize:size];
+            cell.textLabel.text = L(size == 0 ? @"duo_sidebar_narrow" : (size == 1 ? @"duo_sidebar_medium" : @"duo_sidebar_wide"));
+            cell.detailTextLabel.text = [NSString stringWithFormat:@"%d pt", (int)(size == 0 ? 260 : (size == 1 ? 320 : 380))];
+            cell.accessoryType = ([AppSettings duoSidebarSize] == size) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
             break;
         }
         case AppearanceSectionIconStyle: {
@@ -436,6 +467,7 @@ static NSCache *ImageCache(void) {
     AppearanceSection section = [self sectionAtIndex:indexPath.section];
     if (section == AppearanceSectionMode && indexPath.row == 0) return 16 + kModePreviewSize.height + 36 + 24 + 14;
     if (section == AppearanceSectionIcon || section == AppearanceSectionIconStyle) return 62;
+    if (section == AppearanceSectionLayout || section == AppearanceSectionSidebar) return 62;
     if (section == AppearanceSectionWallpaper && indexPath.row >= 1) return 64;
     if (section == AppearanceSectionMenu) return 56;
     return 56;
@@ -445,12 +477,20 @@ static NSCache *ImageCache(void) {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     switch ([self sectionAtIndex:indexPath.section]) {
         case AppearanceSectionMenu: {
-            AppearancePage next = indexPath.row == 0 ? AppearancePageIcon : (indexPath.row == 1 ? AppearancePageChatTheme : AppearancePageAccent);
+            AppearancePage next = indexPath.row == 0 ? AppearancePageIcon : (indexPath.row == 1 ? AppearancePageChatTheme : (indexPath.row == 2 ? AppearancePageAccent : AppearancePageDuo));
             [self.navigationController pushViewController:[[AppearanceViewController alloc] initWithPage:next] animated:YES];
             break;
         }
         case AppearanceSectionIconStyle:
             [self chooseIconStyleDark:indexPath.row == 1];
+            break;
+        case AppearanceSectionLayout:
+            [AppSettings setLayoutMode:indexPath.row];   // posts kNotifLayoutChanged: the chat and the allowed orientations follow
+            [self.tableView reloadData];
+            break;
+        case AppearanceSectionSidebar:
+            [AppSettings setDuoSidebarSize:indexPath.row];
+            [self.tableView reloadData];
             break;
         case AppearanceSectionSkin:
             [self chooseSkin:(ThemeSkin)indexPath.row];
@@ -509,6 +549,85 @@ static NSCache *ImageCache(void) {
         }]];
         [alert presentFromViewController:self];
     }
+}
+
+#pragma mark - iPhone Duo glyphs (drawn in code)
+
+- (NSString *)layoutModeName:(NSInteger)mode {
+    return L(mode == 0 ? @"duo_mode_auto" : (mode == 1 ? @"duo_mode_phone" : @"duo_mode_duo"));
+}
+
+// A small picture of the screen: a phone upright (one pane), a wide screen with a list on the left (two panes) or both.
+- (UIImage *)drawnScreenWithPanes:(NSInteger)panes landscape:(BOOL)landscape {
+    NSString *key = [NSString stringWithFormat:@"screen%ld-%d-%d-%ld", (long)panes, landscape ? 1 : 0, [Theme darkMode] ? 1 : 0, (long)[Theme skin]];
+    UIImage *cached = [ImageCache() objectForKey:key];
+    if (cached) return cached;
+    CGSize size = CGSizeMake(44, 44);
+    UIGraphicsBeginImageContextWithOptions(size, NO, 0);
+    UIColor *accent = [Theme accent];
+    UIColor *line = [Theme secondaryText];
+    [[accent colorWithAlphaComponent:0.14] setFill];
+    [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, 44, 44) cornerRadius:10] fill];
+    CGRect body = landscape ? CGRectMake(7, 12, 30, 20) : CGRectMake(13, 7, 18, 30);
+    UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:body cornerRadius:4];
+    outline.lineWidth = 1.6;
+    [line setStroke];
+    [outline stroke];
+    if (panes == 2 && landscape) {
+        CGFloat x = body.origin.x + 11;
+        UIBezierPath *divider = [UIBezierPath bezierPath];
+        [divider moveToPoint:CGPointMake(x, body.origin.y + 1)];
+        [divider addLineToPoint:CGPointMake(x, CGRectGetMaxY(body) - 1)];
+        divider.lineWidth = 1.4;
+        [line setStroke];
+        [divider stroke];
+        [accent setFill];
+        for (int i = 0; i < 3; i++) {
+            [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(body.origin.x + 3, body.origin.y + 4 + i * 4.5, 5, 2) cornerRadius:1] fill];
+        }
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(x + 4, body.origin.y + 4, 11, 3) cornerRadius:1.5] fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(x + 4, CGRectGetMaxY(body) - 6, 15, 3) cornerRadius:1.5] fill];
+    } else {
+        [accent setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(body.origin.x + 3, body.origin.y + 5, MIN(10, body.size.width - 6), 3) cornerRadius:1.5] fill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(body.origin.x + 3, CGRectGetMaxY(body) - 8, body.size.width - 6, 4) cornerRadius:2] fill];
+    }
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    if (image) [ImageCache() setObject:image forKey:key];
+    return image;
+}
+
+- (UIImage *)layoutGlyphForMode:(NSInteger)mode {
+    if (mode == 1) return [self drawnScreenWithPanes:1 landscape:NO];
+    return [self drawnScreenWithPanes:2 landscape:YES];   // automatic and iPhone Duo are both about the two-pane screen
+}
+
+- (UIImage *)duoGlyphImage {
+    return [self drawnScreenWithPanes:([AppSettings layoutMode] == 1 ? 1 : 2) landscape:[AppSettings layoutMode] != 1];
+}
+
+// Width of the left pane drawn as a bar: the three sizes differ in how much of the screen the pane takes.
+- (UIImage *)sidebarGlyphForSize:(NSInteger)size {
+    NSString *key = [NSString stringWithFormat:@"sidebar%ld-%d-%ld", (long)size, [Theme darkMode] ? 1 : 0, (long)[Theme skin]];
+    UIImage *cached = [ImageCache() objectForKey:key];
+    if (cached) return cached;
+    CGSize canvas = CGSizeMake(44, 44);
+    UIGraphicsBeginImageContextWithOptions(canvas, NO, 0);
+    [[[Theme accent] colorWithAlphaComponent:0.14] setFill];
+    [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, 44, 44) cornerRadius:10] fill];
+    CGRect body = CGRectMake(6, 12, 32, 20);
+    UIBezierPath *outline = [UIBezierPath bezierPathWithRoundedRect:body cornerRadius:4];
+    outline.lineWidth = 1.6;
+    [[Theme secondaryText] setStroke];
+    [outline stroke];
+    CGFloat paneWidth = size == 0 ? 7 : (size == 1 ? 10 : 13);
+    [[[Theme accent] colorWithAlphaComponent:0.85] setFill];
+    [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(body.origin.x + 2, body.origin.y + 2, paneWidth, body.size.height - 4) cornerRadius:2] fill];
+    UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    if (image) [ImageCache() setObject:image forKey:key];
+    return image;
 }
 
 // Light or dark pictures: remembered, and the icon that is on the Home Screen switches to the same style.

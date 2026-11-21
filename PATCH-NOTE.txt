@@ -23,3 +23,5 @@ Icon toi: mau gradient lay dung tu anh goc (khong tu tao mau); chi nang do sang 
 Hop thoai (beta): thay het UIAlertController (hop thoai xac nhan, thong bao, nhap mat khau dev, doi ten, xoa) bang pop-up ClaudeMini; hop co o nhap tu day len tren ban phim.
 
 Chi dan AI (beta): nut "Nhap tu tep (.clmn hoac .txt)" trong man Chi dan cho AI; mo tep .clmn bang ClaudeMini (Tep, chia se, AirDrop) thi app tu doc va nhap vao chi dan (hoi thay the hoac them vao cuoi neu da co chi dan).
+
+iPhone Duo (beta): bo cuc hai khung (danh sach chat co dinh ben trai, chat ben phai), cho phep xoay ngang, tranh tai tho khi xoay; Cai dat > Giao dien > iPhone Duo: chon Tu dong / Dien thoai / iPhone Duo va do rong khung trai; nut menu tren cung gap/mo khung trai; man key van chi xoay doc.

@@ -308,3 +308,17 @@
 "instr_err_read" = "This file could not be read. Pick a text file (.clmn or .txt).";
 "instr_err_empty" = "This file is empty.";
 "instr_err_big" = "This file is too large to be instructions.";
+"appearance_menu_duo" = "iPhone Duo";
+"duo_layout_header" = "Screen layout";
+"duo_layout_footer" = "iPhone Duo: the chat list stays on the left, the chat on the right, and the app can rotate to landscape. Phone: one pane, upright only. Automatic: two panes only when the screen is wide enough. The menu button at the top folds the left pane away or brings it back.";
+"duo_mode_auto" = "Automatic";
+"duo_mode_auto_note" = "Two panes when the screen is wide enough";
+"duo_mode_phone" = "Phone";
+"duo_mode_phone_note" = "One pane, upright only";
+"duo_mode_duo" = "iPhone Duo (two panes)";
+"duo_mode_duo_note" = "List on the left, chat on the right, landscape";
+"duo_sidebar_header" = "Left pane";
+"duo_sidebar_footer" = "Width of the chat list when two panes are shown.";
+"duo_sidebar_narrow" = "Narrow";
+"duo_sidebar_medium" = "Medium";
+"duo_sidebar_wide" = "Wide";

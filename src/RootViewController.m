@@ -440,4 +440,12 @@ typedef NS_ENUM(NSInteger, StatusKind) {
     self.scrollView.scrollIndicatorInsets = UIEdgeInsetsZero;
 }
 
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskPortrait;   // the key screen is laid out for an upright phone
+}
+
+- (BOOL)shouldAutorotate {
+    return YES;
+}
+
 @end
