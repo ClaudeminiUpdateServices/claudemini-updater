@@ -285,3 +285,7 @@
 "dev_minutes" = "%ld minutes";
 "dev_err_locked" = "The developer session is locked. Enter the password again.";
 "dev_err_decrypt" = "The build could not be decrypted (wrong key or modified file).";
+"voice_denied" = "Allow the microphone and speech recognition for ClaudeMini in the iPhone Settings.";
+"voice_unavailable" = "Speech recognition is not available right now. Check your connection and try again.";
+"voice_no_speech" = "Nothing was heard. Tap the mic and speak again.";
+"voice_failed" = "Could not record. Please try again.";

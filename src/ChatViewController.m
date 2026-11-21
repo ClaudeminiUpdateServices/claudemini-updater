@@ -143,232 +143,6 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
     return [img imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 }
 
-#pragma mark - Forward Declarations & Interfaces
-
-@class ChatViewController;
-
-@interface ChatViewController (VoiceIntegration)
-@property (strong, nonatomic) VoiceChatManager *voiceManager;
-@property (strong, nonatomic) UITextView *textView;
-@property (assign, nonatomic) BOOL activeFullScreenVoice;
-@property (assign, nonatomic) NSInteger activeVoiceStyleIndex;
-- (void)textViewDidChange:(UITextView *)textView;
-- (void)sendTapped;
-- (void)speakLastAssistantMessage;
-@end
-
-#pragma mark - VoiceChatFullScreenViewController
-
-@interface VoiceChatFullScreenViewController : UIViewController
-@property (assign, nonatomic) NSInteger selectedVoiceIndex;
-@property (strong, nonatomic) ChatViewController *chatController;
-- (void)onAssistantStartedSpeaking:(NSString *)text;
-- (void)onAssistantFinishedSpeaking;
-@end
-
-@implementation VoiceChatFullScreenViewController {
-    UIView *_blueLightView1;
-    UIView *_blueLightView2;
-    UILabel *_statusLabel;
-    UIButton *_micButton;
-    BOOL _isListening;
-}
-
-- (void)viewDidLoad {
-    [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithRed:0.05 green:0.08 blue:0.15 alpha:1.0];
-    [self setupMovingBlueLights];
-
-    UIButton *closeBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    closeBtn.frame = CGRectMake(20, 50, 40, 40);
-    [closeBtn setImage:[Theme iconClose] forState:UIControlStateNormal];
-    closeBtn.tintColor = [UIColor whiteColor];
-    [closeBtn addTarget:self action:@selector(closeTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:closeBtn];
-
-    CGFloat screenW = CGRectGetWidth(self.view.bounds);
-    CGFloat screenH = CGRectGetHeight(self.view.bounds);
-
-    UIView *centerOrb = [[UIView alloc] initWithFrame:CGRectMake((screenW - 140)/2, (screenH - 140)/2 - 40, 140, 140)];
-    centerOrb.layer.cornerRadius = 70;
-    centerOrb.backgroundColor = [[UIColor colorWithRed:0.2 green:0.6 blue:1.0 alpha:0.3] colorWithAlphaComponent:0.4];
-    centerOrb.layer.shadowColor = [UIColor colorWithRed:0.1 green:0.5 blue:1.0 alpha:1.0].CGColor;
-    centerOrb.layer.shadowOpacity = 0.8;
-    centerOrb.layer.shadowRadius = 30;
-    centerOrb.layer.shadowOffset = CGSizeZero;
-    [self.view addSubview:centerOrb];
-
-    CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-    pulse.fromValue = @1.0;
-    pulse.toValue = @1.15;
-    pulse.autoreverses = YES;
-    pulse.repeatCount = HUGE_VALF;
-    pulse.duration = 2.0;
-    [centerOrb.layer addAnimation:pulse forKey:@"pulse"];
-
-    _statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, CGRectGetMaxY(centerOrb.frame) + 30, screenW - 40, 60)];
-    _statusLabel.text = @"Đang sẵn sàng trò chuyện...";
-    _statusLabel.textColor = [UIColor whiteColor];
-    _statusLabel.textAlignment = NSTextAlignmentCenter;
-    _statusLabel.numberOfLines = 2;
-    _statusLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
-    [self.view addSubview:_statusLabel];
-
-    _micButton = [UIButton buttonWithType:UIButtonTypeCustom];
-    _micButton.frame = CGRectMake((screenW - 80)/2, screenH - 120, 80, 80);
-    _micButton.layer.cornerRadius = 40;
-    _micButton.backgroundColor = [UIColor colorWithRed:0.1 green:0.5 blue:0.9 alpha:1.0];
-    [_micButton setImage:[Theme iconMicOfSize:36] forState:UIControlStateNormal];
-    _micButton.tintColor = [UIColor whiteColor];
-    [_micButton addTarget:self action:@selector(micButtonTapped) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:_micButton];
-
-    self.chatController.activeFullScreenVoice = YES;
-    self.chatController.activeVoiceStyleIndex = self.selectedVoiceIndex;
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self startVoiceSession];
-    });
-}
-
-- (void)configureAudioSessionForPlayback:(BOOL)forPlayback {
-    NSError *error = nil;
-    AVAudioSession *session = [AVAudioSession sharedInstance];
-    AVAudioSessionCategoryOptions opts = AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetooth;
-    [session setCategory:AVAudioSessionCategoryPlayAndRecord withOptions:opts error:&error];
-    [session setMode:(forPlayback ? AVAudioSessionModeDefault : AVAudioSessionModeMeasurement) error:&error];
-    [session setActive:YES withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:&error];
-}
-
-- (void)setupMovingBlueLights {
-    CGFloat screenW = CGRectGetWidth(self.view.bounds);
-    CGFloat screenH = CGRectGetHeight(self.view.bounds);
-
-    _blueLightView1 = [[UIView alloc] initWithFrame:CGRectMake(-50, -50, 300, 300)];
-    _blueLightView1.layer.cornerRadius = 150;
-    _blueLightView1.backgroundColor = [UIColor colorWithRed:0.0 green:0.4 blue:0.8 alpha:0.35];
-    _blueLightView1.clipsToBounds = YES;
-    [self.view addSubview:_blueLightView1];
-
-    _blueLightView2 = [[UIView alloc] initWithFrame:CGRectMake(screenW - 250, screenH - 250, 350, 350)];
-    _blueLightView2.layer.cornerRadius = 175;
-    _blueLightView2.backgroundColor = [UIColor colorWithRed:0.1 green:0.7 blue:0.9 alpha:0.3];
-    [self.view addSubview:_blueLightView2];
-
-    [UIView animateKeyframesWithDuration:8.0 delay:0 options:UIViewKeyframeAnimationOptionAutoreverse | UIViewKeyframeAnimationOptionRepeat animations:^{
-        [UIView addKeyframeWithRelativeStartTime:0 relativeDuration:0.5 animations:^{
-            self->_blueLightView1.frame = CGRectMake(screenW - 200, screenH / 3, 350, 350);
-            self->_blueLightView2.frame = CGRectMake(50, 100, 300, 300);
-        }];
-        [UIView addKeyframeWithRelativeStartTime:0.5 relativeDuration:0.5 animations:^{
-            self->_blueLightView1.frame = CGRectMake(50, screenH - 300, 320, 320);
-            self->_blueLightView2.frame = CGRectMake(screenW - 250, 80, 360, 360);
-        }];
-    } completion:nil];
-}
-
-- (void)closeTapped {
-    self.chatController.activeFullScreenVoice = NO;
-    if (self.chatController.voiceManager) {
-        [self.chatController.voiceManager stopRecording];
-        [self.chatController.voiceManager stopSpeaking];
-    }
-    [self dismissViewControllerAnimated:YES completion:nil];
-}
-
-- (void)onAssistantStartedSpeaking:(NSString *)text {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self configureAudioSessionForPlayback:YES];
-        self->_isListening = NO;
-        [self resetMicButtonState];
-        self->_statusLabel.text = @"AI đang trả lời bằng giọng nói...";
-    });
-}
-
-- (void)onAssistantFinishedSpeaking {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (!self.view.window || !self.chatController.activeFullScreenVoice) return;
-        [self startVoiceSession];
-    });
-}
-
-- (void)startVoiceSession {
-    if (!self.chatController.voiceManager) {
-        self.chatController.voiceManager = [VoiceChatManager shared];
-    }
-    [self.chatController.voiceManager stopSpeaking];
-    [self configureAudioSessionForPlayback:NO];
-
-    _statusLabel.text = @"Đang lắng nghe...";
-    _isListening = YES;
-    _micButton.backgroundColor = [UIColor colorWithRed:0.9 green:0.2 blue:0.2 alpha:1.0];
-
-    __weak typeof(self) weakSelf = self;
-    [self.chatController.voiceManager requestAuthorization:^(BOOL granted) {
-        if (!granted) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                self->_statusLabel.text = @"Cần quyền microphone.";
-                [self resetMicButtonState];
-            });
-            return;
-        }
-        [weakSelf.chatController.voiceManager startRecordingWithPartial:^(NSString *text) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (text.length > 0) {
-                    self->_statusLabel.text = text;
-                }
-            });
-        } final:^(NSString *text) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                NSString *clean = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-                if (clean.length > 0) {
-                    self->_isListening = NO;
-                    [weakSelf resetMicButtonState];
-                    self->_statusLabel.text = [NSString stringWithFormat:@"Đã gửi: %@", clean];
-                    [weakSelf sendVoiceTextToAI:clean];
-                } else {
-                    self->_statusLabel.text = @"Không nghe rõ, thử lại nhé.";
-                    [weakSelf resetMicButtonState];
-                }
-            });
-        } error:^(NSString *msg) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                self->_statusLabel.text = msg ?: @"Lỗi ghi âm.";
-                [weakSelf resetMicButtonState];
-            });
-        }];
-    }];
-}
-
-- (void)micButtonTapped {
-    if (_isListening) {
-        [self.chatController.voiceManager stopRecording];
-        _isListening = NO;
-        [self resetMicButtonState];
-        _statusLabel.text = @"Đã tạm dừng mic. Nhấn để nói tiếp.";
-    } else {
-        [self startVoiceSession];
-    }
-}
-
-- (void)resetMicButtonState {
-    _isListening = NO;
-    _micButton.backgroundColor = [UIColor colorWithRed:0.1 green:0.5 blue:0.9 alpha:1.0];
-}
-
-- (void)sendVoiceTextToAI:(NSString *)text {
-    [self.chatController.voiceManager stopRecording];
-    [self configureAudioSessionForPlayback:YES];
-    self.chatController.activeFullScreenVoice = YES;
-    self.chatController.activeVoiceStyleIndex = self.selectedVoiceIndex;
-    _statusLabel.text = @"AI đang suy nghĩ...";
-    self.chatController.textView.text = text;
-    [self.chatController textViewDidChange:self.chatController.textView];
-    [self.chatController sendTapped];
-}
-
-@end
-
 #pragma mark - ChatViewController
 
 @interface ChatViewController () <WKNavigationDelegate, ScriptMessageTarget, UITextViewDelegate,
@@ -425,9 +199,9 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (strong, nonatomic) UIButton *sendButton;
 @property (strong, nonatomic) VoiceChatManager *voiceManager;
 @property (assign, nonatomic) BOOL voiceRecording;
-@property (assign, nonatomic) BOOL activeFullScreenVoice;
-@property (assign, nonatomic) NSInteger activeVoiceStyleIndex;
-@property (assign, nonatomic) BOOL lastWasStreaming;
+@property (copy, nonatomic) NSString *dictationBase;          // what was typed before the mic was pressed
+@property (assign, nonatomic) BOOL dictationUserEdited;       // the user typed while dictating: the spoken text no longer overwrites
+@property (assign, nonatomic) BOOL applyingDictation;
 @property (strong, nonatomic) UIButton *modelButton;
 @property (assign, nonatomic) BOOL pendingModelPopup;
 @property (assign, nonatomic) BOOL pendingModelPopupIntro;
@@ -451,6 +225,9 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (strong, nonatomic) dispatch_source_t deltaFlushTimer;
 @property (strong, nonatomic) NSMutableString *longReplyAccumulator;
 @property (assign, nonatomic) NSUInteger longReplyContinuationCount;
+@property (assign, nonatomic) NSUInteger earlyEndContinuations;   // continuations after a stream that closed quietly (capped: a provider that never sends its final event must not loop)
+@property (assign, nonatomic) UIBackgroundTaskIdentifier replyBackgroundTask;
+@property (assign, nonatomic) BOOL replyBackgroundTaskActive;
 @property (strong, nonatomic) NSMutableArray *streamGeneratedAttachments;
 
 @property (strong, nonatomic) NSMutableArray *pendingAttachments;
@@ -533,8 +310,37 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 
 - (void)dealloc {
     [self stopDeltaFlushTimer];
+    [UIApplication sharedApplication].idleTimerDisabled = NO;
+    if (self.replyBackgroundTaskActive) [[UIApplication sharedApplication] endBackgroundTask:self.replyBackgroundTask];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self.webView.configuration.userContentController removeScriptMessageHandlerForName:@"native"];
+}
+
+// While a reply is being written the screen must not auto-lock (a locked phone suspends the app and cuts the connection), and a short
+// trip to another app gets a little extra running time. Both are released as soon as the reply ends.
+- (void)setStreaming:(BOOL)streaming {
+    _streaming = streaming;
+    UIApplication *app = [UIApplication sharedApplication];
+    if (streaming) {
+        app.idleTimerDisabled = YES;
+        if (!self.replyBackgroundTaskActive) {
+            __weak typeof(self) weakSelf = self;
+            self.replyBackgroundTask = [app beginBackgroundTaskWithName:@"chat-reply" expirationHandler:^{
+                ChatViewController *me = weakSelf;
+                if (me && me.replyBackgroundTaskActive) {
+                    me.replyBackgroundTaskActive = NO;
+                    [[UIApplication sharedApplication] endBackgroundTask:me.replyBackgroundTask];
+                }
+            }];
+            self.replyBackgroundTaskActive = YES;
+        }
+    } else {
+        app.idleTimerDisabled = NO;
+        if (self.replyBackgroundTaskActive) {
+            self.replyBackgroundTaskActive = NO;
+            [app endBackgroundTask:self.replyBackgroundTask];
+        }
+    }
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -558,6 +364,11 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
         self.pendingModelPopupIntro = NO;
         [self presentModelPopupIntro:intro];
     }
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    if (self.voiceRecording) [self.voiceManager cancelDictation];   // leaving the chat (Settings, ...): stop listening
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle {
@@ -1702,6 +1513,15 @@ static const CGFloat kDrawerWidthRatio = 0.62;
         [self applyUIScaleToNativeAndWeb];
         [self pushStrings];
         [self renderConversation];
+        if (self.streaming) {
+            // iOS restarted the page while a reply was being written: draw the text received so far and carry on.
+            [self callJS:@"begin" args:@[]];
+            NSString *soFar = self.longReplyAccumulator.length > 0
+                ? [self.longReplyAccumulator stringByAppendingString:(self.streamBuffer ?: @"")]
+                : (self.streamBuffer ?: @"");
+            [self.pendingJSDelta setString:@""];   // already part of soFar
+            if (soFar.length > 0) [self callJS:@"delta" args:@[soFar]];
+        }
         [self updateSendButton];
         [self unlockWebViewScrolling];
     } else if ([type isEqualToString:@"empty"]) {
@@ -2044,6 +1864,11 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 #pragma mark - Input
 
 - (void)textViewDidChange:(UITextView *)textView {
+    if (self.voiceRecording && !self.applyingDictation) {
+        // The user started typing while dictating: stop listening and keep their own text.
+        self.dictationUserEdited = YES;
+        [self.voiceManager cancelDictation];
+    }
     self.placeholderLabel.hidden = textView.text.length > 0;
     [self updateSendButton];
     [self relayoutAnimated];
@@ -2054,8 +1879,12 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 }
 
 - (void)micTapped {
-    if (self.streaming || self.voiceRecording) return;
-    [self showVoiceSelectionPopup];
+    if (self.voiceRecording) {
+        [self.voiceManager finishDictation];   // keep the last words; the final text arrives in a moment
+        return;
+    }
+    if (self.streaming) return;
+    [self startDictation];
 }
 
 - (void)updateSendButton {
@@ -2064,26 +1893,17 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     if (self.streaming) {
         [self.sendButton setImage:[Theme iconStop] forState:UIControlStateNormal];
         self.sendButton.backgroundColor = [Theme accent];
-    } else if (self.voiceRecording) {
-        [self.sendButton setImage:[Theme iconStop] forState:UIControlStateNormal];
-        self.sendButton.backgroundColor = [UIColor colorWithRed:0.85 green:0.20 blue:0.20 alpha:1.0];
     } else {
         [self.sendButton setImage:[Theme iconSend] forState:UIControlStateNormal];
         self.sendButton.backgroundColor = canSend ? [Theme accent] : [Theme accentDisabled];
     }
-    self.sendButton.enabled = self.streaming || self.voiceRecording || canSend;
-    BOOL micAvailable = !self.streaming && !self.voiceRecording;
+    self.sendButton.enabled = self.streaming || canSend;
+    BOOL micAvailable = !self.streaming || self.voiceRecording;
     self.micButton.enabled = micAvailable;
-    self.micButton.alpha = micAvailable ? 1.0 : 0.4;
-    self.micButton.tintColor = [Theme text];
+    if (!self.voiceRecording) self.micButton.alpha = micAvailable ? 1.0 : 0.4;
+    self.micButton.tintColor = self.voiceRecording ? [UIColor colorWithRed:0.90 green:0.22 blue:0.22 alpha:1.0] : [Theme text];
     self.attachButton.enabled = !self.streaming;
     self.attachButton.alpha = self.streaming ? 0.4 : 1.0;
-    if (self.lastWasStreaming && !self.streaming) {
-        if (self.activeFullScreenVoice) {
-            [self speakLastAssistantMessage];
-        }
-    }
-    self.lastWasStreaming = self.streaming;
 }
 
 - (NSString *)serifCSSValue {
@@ -2124,168 +1944,72 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self applyUIScaleToNativeAndWeb];
 }
 
-#pragma mark - Voice chat & Voice Selection Popup
+#pragma mark - Dictation (mic: speech to text, the user presses send)
 
-- (void)showVoiceSelectionPopup {
-    if ([self.view viewWithTag:9988]) return;
-
-    CGFloat screenW = CGRectGetWidth(self.view.bounds);
-
-    UIView *overlay = [[UIView alloc] initWithFrame:self.view.bounds];
-    overlay.tag = 9988;
-    overlay.backgroundColor = [UIColor clearColor];
-
-    UIButton *dismissBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    dismissBtn.frame = overlay.bounds;
-    [dismissBtn addTarget:self action:@selector(dismissVoicePopup) forControlEvents:UIControlEventTouchUpInside];
-    [overlay addSubview:dismissBtn];
-
-    CGFloat menuW = 230;
-    CGFloat menuH = 170;
-    CGFloat bottomBarY = CGRectGetMinY(self.inputBar.frame);
-    CGFloat startX = screenW - 12 - 36 - menuW;
-    CGFloat startY = bottomBarY - menuH - 8;
-
-    UIView *menuCard = [[UIView alloc] initWithFrame:CGRectMake(screenW - 12 - 36, startY + menuH/2, 0, 0)];
-    menuCard.tag = 9989;
-    menuCard.backgroundColor = [Theme surface];
-    menuCard.layer.cornerRadius = 16;
-    menuCard.layer.borderWidth = 1;
-    menuCard.layer.borderColor = [Theme border].CGColor;
-    menuCard.clipsToBounds = YES;
-    menuCard.layer.shadowColor = [UIColor blackColor].CGColor;
-    menuCard.layer.shadowOpacity = 0.25;
-    menuCard.layer.shadowRadius = 12;
-    menuCard.layer.shadowOffset = CGSizeMake(-4, 4);
-    [overlay addSubview:menuCard];
-
-    UILabel *titleLbl = [[UILabel alloc] initWithFrame:CGRectMake(16, 12, menuW - 32, 24)];
-    titleLbl.text = @"Chọn giọng nói AI";
-    titleLbl.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
-    titleLbl.textColor = [Theme text];
-    [menuCard addSubview:titleLbl];
-
-    NSArray *voices = @[@"1. Giọng nữ tự nhiên", @"2. Giọng nam trầm ấm", @"3. Giọng biểu cảm"];
-    CGFloat rowY = 42;
-    for (NSInteger i = 0; i < voices.count; i++) {
-        UIButton *btn = [UIButton buttonWithType:UIButtonTypeSystem];
-        btn.frame = CGRectMake(12, rowY, menuW - 24, 36);
-        btn.backgroundColor = [Theme background];
-        btn.layer.cornerRadius = 8;
-        [btn setTitle:voices[i] forState:UIControlStateNormal];
-        [btn setTitleColor:[Theme text] forState:UIControlStateNormal];
-        btn.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
-        btn.tag = 100 + i;
-        [btn addTarget:self action:@selector(voiceOptionSelected:) forControlEvents:UIControlEventTouchUpInside];
-        [menuCard addSubview:btn];
-        rowY += 40;
+- (void)setDictationActive:(BOOL)active {
+    self.voiceRecording = active;
+    self.micButton.tintColor = active ? [UIColor colorWithRed:0.90 green:0.22 blue:0.22 alpha:1.0] : [Theme text];
+    self.micButton.accessibilityLabel = active ? @"Stop" : @"Mic";
+    [self.micButton.layer removeAnimationForKey:@"dictationPulse"];
+    if (active) {
+        CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        pulse.fromValue = @1.0;
+        pulse.toValue = @0.35;
+        pulse.duration = 0.7;
+        pulse.autoreverses = YES;
+        pulse.repeatCount = HUGE_VALF;
+        [self.micButton.layer addAnimation:pulse forKey:@"dictationPulse"];
     }
-
-    [self.view addSubview:overlay];
-
-    [UIView animateWithDuration:0.28 delay:0 usingSpringWithDamping:0.75 initialSpringVelocity:0.6 options:UIViewAnimationOptionCurveEaseOut animations:^{
-        menuCard.frame = CGRectMake(startX, startY, menuW, menuH);
-    } completion:nil];
 }
 
-- (void)dismissVoicePopup {
-    UIView *overlay = [self.view viewWithTag:9988];
-    if (!overlay) return;
-    UIView *menuCard = [overlay viewWithTag:9989];
-    [UIView animateWithDuration:0.20 animations:^{
-        menuCard.alpha = 0;
-        menuCard.transform = CGAffineTransformMakeScale(0.7, 0.7);
-        overlay.alpha = 0;
-    } completion:^(BOOL finished) {
-        [overlay removeFromSuperview];
+// Writes the spoken text after what was already typed.
+- (void)applyDictatedText:(NSString *)spoken {
+    NSString *base = self.dictationBase ?: @"";
+    NSString *joined = base;
+    if (spoken.length > 0) {
+        BOOL needsSpace = base.length > 0 && ![[NSCharacterSet whitespaceAndNewlineCharacterSet] characterIsMember:[base characterAtIndex:base.length - 1]];
+        joined = [NSString stringWithFormat:@"%@%@%@", base, needsSpace ? @" " : @"", spoken];
+    }
+    self.applyingDictation = YES;
+    self.textView.text = joined;
+    [self textViewDidChange:self.textView];
+    self.applyingDictation = NO;
+    UITextRange *end = [self.textView textRangeFromPosition:self.textView.endOfDocument toPosition:self.textView.endOfDocument];
+    if (end) self.textView.selectedTextRange = end;
+}
+
+- (void)startDictation {
+    if (!self.voiceManager) self.voiceManager = [VoiceChatManager shared];
+    __weak typeof(self) weakSelf = self;
+    [self.voiceManager requestAuthorization:^(BOOL granted) {
+        ChatViewController *me = weakSelf;
+        if (!me || me.voiceRecording || me.streaming) return;
+        if (!granted) { [me showAlertMessage:L(@"voice_denied")]; return; }
+        me.dictationBase = me.textView.text ?: @"";
+        me.dictationUserEdited = NO;
+        [me setDictationActive:YES];
+        [me.voiceManager startDictationWithPartial:^(NSString *text) {
+            ChatViewController *self2 = weakSelf;
+            if (!self2 || !self2.voiceRecording || self2.dictationUserEdited) return;
+            [self2 applyDictatedText:text];
+        } final:^(NSString *text) {
+            ChatViewController *self2 = weakSelf;
+            if (!self2) return;
+            if (!self2.dictationUserEdited && text.length > 0) [self2 applyDictatedText:text];
+            self2.dictationBase = nil;
+            [self2 setDictationActive:NO];
+            [self2 updateSendButton];
+        } issue:^(VoiceDictationIssue issue) {
+            ChatViewController *self2 = weakSelf;
+            if (!self2) return;
+            switch (issue) {
+                case VoiceDictationIssueDenied:      [self2 showAlertMessage:L(@"voice_denied")]; break;
+                case VoiceDictationIssueUnavailable: [self2 showAlertMessage:L(@"voice_unavailable")]; break;
+                case VoiceDictationIssueNoSpeech:    [self2 showAlertMessage:L(@"voice_no_speech")]; break;
+                default:                             [self2 showAlertMessage:L(@"voice_failed")]; break;
+            }
+        }];
     }];
-}
-
-- (void)voiceOptionSelected:(UIButton *)sender {
-    NSInteger voiceIndex = sender.tag - 100;
-    [self dismissVoicePopup];
-    [self presentFullScreenVoiceChatWithVoiceIndex:voiceIndex];
-}
-
-- (void)presentFullScreenVoiceChatWithVoiceIndex:(NSInteger)voiceIndex {
-    VoiceChatFullScreenViewController *vc = [[VoiceChatFullScreenViewController alloc] init];
-    vc.modalPresentationStyle = UIModalPresentationFullScreen;
-    vc.selectedVoiceIndex = voiceIndex;
-    vc.chatController = self;
-    [self presentViewController:vc animated:YES completion:nil];
-}
-
-- (void)speakLastAssistantMessage {
-    NSArray *msgs = self.conversation[@"messages"];
-    if (![msgs isKindOfClass:[NSArray class]]) return;
-    for (NSInteger i = (NSInteger)msgs.count - 1; i >= 0; i--) {
-        id m = msgs[(NSUInteger)i];
-        if (![m isKindOfClass:[NSDictionary class]]) continue;
-        NSDictionary *msgDict = (NSDictionary *)m;
-        NSString *role = msgDict[@"role"];
-        if ([role isEqualToString:@"model"] || [role isEqualToString:@"assistant"]) {
-            NSString *text = [msgDict[@"text"] isKindOfClass:[NSString class]] ? msgDict[@"text"] : nil;
-            if (text.length == 0) {
-                id content = msgDict[@"content"];
-                if ([content isKindOfClass:[NSString class]]) text = content;
-                else if ([content isKindOfClass:[NSArray class]]) text = [(NSArray *)content componentsJoinedByString:@" "];
-            }
-            if (text.length > 0) {
-                if (!self.voiceManager) self.voiceManager = [VoiceChatManager shared];
-                [self.voiceManager stopRecording];
-
-                NSError *err = nil;
-                AVAudioSession *session = [AVAudioSession sharedInstance];
-                [session setCategory:AVAudioSessionCategoryPlayAndRecord
-                          withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetooth
-                                error:&err];
-                [session setMode:AVAudioSessionModeDefault error:&err];
-                [session setActive:YES withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:&err];
-
-                VoiceChatFullScreenViewController *voiceVC = [self.presentedViewController isKindOfClass:[VoiceChatFullScreenViewController class]]
-                    ? (VoiceChatFullScreenViewController *)self.presentedViewController : nil;
-                [voiceVC onAssistantStartedSpeaking:text];
-
-                NSString *spoken = text.length > 2500 ? [text substringToIndex:2500] : text;
-                SEL speakWithStyleSel = NSSelectorFromString(@"speak:voiceIndex:completion:");
-                SEL speakWithCompletionSel = NSSelectorFromString(@"speak:completion:");
-                if ([self.voiceManager respondsToSelector:speakWithStyleSel]) {
-                    NSMethodSignature *sig = [self.voiceManager methodSignatureForSelector:speakWithStyleSel];
-                    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
-                    [inv setTarget:self.voiceManager];
-                    [inv setSelector:speakWithStyleSel];
-                    NSInteger style = self.activeVoiceStyleIndex;
-                    void (^done)(void) = ^{
-                        [voiceVC onAssistantFinishedSpeaking];
-                    };
-                    [inv setArgument:&spoken atIndex:2];
-                    [inv setArgument:&style atIndex:3];
-                    [inv setArgument:&done atIndex:4];
-                    [inv invoke];
-                } else if ([self.voiceManager respondsToSelector:speakWithCompletionSel]) {
-                    NSMethodSignature *sig = [self.voiceManager methodSignatureForSelector:speakWithCompletionSel];
-                    NSInvocation *inv = [NSInvocation invocationWithMethodSignature:sig];
-                    [inv setTarget:self.voiceManager];
-                    [inv setSelector:speakWithCompletionSel];
-                    void (^done)(void) = ^{
-                        [voiceVC onAssistantFinishedSpeaking];
-                    };
-                    [inv setArgument:&spoken atIndex:2];
-                    [inv setArgument:&done atIndex:3];
-                    [inv invoke];
-                } else {
-                    [self.voiceManager speak:spoken];
-                    if (voiceVC) {
-                        NSTimeInterval approxDuration = MAX(2.0, MIN(30.0, (double)spoken.length * 0.065));
-                        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(approxDuration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                            [voiceVC onAssistantFinishedSpeaking];
-                        });
-                    }
-                }
-            }
-            return;
-        }
-    }
 }
 
 #pragma mark - Attachments
@@ -2742,6 +2466,10 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
         [self.stream cancel];
         return;
     }
+    if (self.voiceRecording) {
+        // Sending while the mic is open: stop listening now and send what has been written so far.
+        [self.voiceManager cancelDictation];
+    }
     NSString *text = [self trimmedInput];
     BOOL hasAttachments = self.pendingAttachments.count > 0;
     if (text.length == 0 && !hasAttachments) return;
@@ -3002,6 +2730,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     self.streamBuffer = [NSMutableString string];
     self.longReplyAccumulator = [NSMutableString string];
     self.longReplyContinuationCount = 0;
+    self.earlyEndContinuations = 0;
     self.streamRetryCount = 0;
     self.didRecoverModel404 = NO;
     self.didFallbackFromFastMode = NO;
@@ -3138,6 +2867,18 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     [DiagnosticLog log:@"reply: model=%@ mode=%@ result=%@ http=%ld textChars=%lu elapsed=%.0fms detail=%@", self.model,
                        self.attemptIsStreaming ? @"stream" : @"single", StreamErrorName(error), (long)status,
                        (unsigned long)partial.length, (CFAbsoluteTimeGetCurrent() - self.requestStartTime) * 1000, ClippedForLog(detail)];
+
+    // A stream that closed quietly (no error, but also no final event) is continued; a provider that never sends the final
+    // event must not make every reply loop, so after two such continuations the reply counts as finished.
+    if (error == GeminiStreamErrorNetwork && [detail isEqualToString:kStreamEndedEarlyMarker]) {
+        if (partial.length == 0 || self.earlyEndContinuations >= 2) {
+            error = GeminiStreamErrorNone;
+            status = 200;
+            detail = nil;
+        } else {
+            self.earlyEndContinuations++;
+        }
+    }
 
     AIProvider currentProvider = [Provider forModelId:self.model];
     BOOL interruptedMidStream = (error == GeminiStreamErrorNetwork || error == GeminiStreamErrorServer) && partial.length > 0 && self.longReplyContinuationCount < 6;
@@ -3296,9 +3037,11 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     }
     self.longReplyAccumulator = nil;
     self.longReplyContinuationCount = 0;
+    self.earlyEndContinuations = 0;
     self.streamGeneratedAttachments = nil;
     [self callJS:@"end" args:@[(completeReply ?: @"")]];
     if (generatedAttachments.count > 0) [self renderConversation];
+    if ([detail isEqualToString:kStreamEndedEarlyMarker]) detail = @"Kết nối bị ngắt khi AI đang trả lời. Phần đã nhận được giữ lại; gửi 'tiếp tục' để lấy phần còn lại.";
     if ([detail hasPrefix:@"Đã đạt giới hạn an toàn của chuỗi tự nối tiếp."]) {
         [self callJS:@"error" args:@[detail, @YES]];
     } else if (error != GeminiStreamErrorNone && error != GeminiStreamErrorCancelled) {
@@ -3340,6 +3083,7 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     if (completeReply.length > 0 || generatedAttachments.count > 0) [self appendAssistantMessage:completeReply attachments:generatedAttachments];
     self.longReplyAccumulator = nil;
     self.longReplyContinuationCount = 0;
+    self.earlyEndContinuations = 0;
     self.streamGeneratedAttachments = nil;
     [self updateSendButton];
 }

@@ -19,6 +19,7 @@ static NSString *const kAnthropicVersion = @"2023-06-01";
 @property (assign, nonatomic) BOOL cancelled;
 @property (assign, nonatomic) BOOL finished;
 @property (assign, nonatomic) BOOL gotText;
+@property (assign, nonatomic) BOOL sawMessageStop;   // the provider's last event; without it a live stream was cut short
 @property (copy, nonatomic) NSString *stopReason;
 @property (copy, nonatomic) NSString *inStreamErrorType;
 @property (copy, nonatomic) NSString *inStreamErrorMessage;
@@ -77,6 +78,13 @@ static NSString *const kAnthropicVersion = @"2023-06-01";
     return messages;
 }
 
+// Seconds of silence tolerated before the connection counts as dead. Long replies, deep reasoning and web searches can stay
+// quiet for a while, and a single (non-live) request sends nothing until the whole answer is ready.
++ (NSTimeInterval)idleTimeoutFast:(BOOL)fast streaming:(BOOL)streaming {
+    if (!streaming) return fast ? 300 : 600;
+    return fast ? 150 : 240;
+}
+
 #pragma mark - Control
 
 - (void)start {
@@ -130,7 +138,7 @@ static NSString *const kAnthropicVersion = @"2023-06-01";
     }
     NSData *body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
 
-    NSTimeInterval timeout = self.useFastSpeed ? (self.useStreaming ? 90 : 120) : (self.useStreaming ? 180 : 240);
+    NSTimeInterval timeout = [ClaudeStream idleTimeoutFast:self.useFastSpeed streaming:self.useStreaming];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:kClaudeMessagesURL]
                                                            cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                        timeoutInterval:timeout];
@@ -162,13 +170,14 @@ static NSString *const kAnthropicVersion = @"2023-06-01";
     [self.errorBody setLength:0];
     self.status = 0;
     self.gotText = NO;
+    self.sawMessageStop = NO;
     self.inStreamErrorType = nil;
     self.inStreamErrorMessage = nil;
     self.stopReason = nil;
     self.inputTokenUsage = 0;
     self.outputTokenUsage = 0;
 
-    NSTimeInterval timeout = self.useFastSpeed ? (self.useStreaming ? 90 : 120) : (self.useStreaming ? 180 : 240);
+    NSTimeInterval timeout = [ClaudeStream idleTimeoutFast:self.useFastSpeed streaming:self.useStreaming];
     NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
     config.timeoutIntervalForRequest = timeout;
     config.timeoutIntervalForResource = 3600;
@@ -272,7 +281,19 @@ didReceiveResponse:(NSURLResponse *)response
         self.onDelta = nil;
         self.onUsage = nil;
         self.onFinish = nil;
-        if (finish) finish(GeminiStreamErrorNone, self.status, nil);
+        // A live stream that closed without the provider's final event was cut short (the connection was closed quietly):
+        // the chat continues the reply instead of presenting half an answer as finished.
+        BOOL cutShort = self.useStreaming && !self.sawMessageStop && self.stopReason.length == 0;
+        // The reply stopped because of the length limit (or the provider paused a long turn): the chat asks for the rest.
+        BOOL hitLimit = [self.stopReason isEqualToString:@"max_tokens"] || [self.stopReason isEqualToString:@"pause_turn"] ||
+                        [self.stopReason isEqualToString:@"model_context_window_exceeded"];
+        if (cutShort) {
+            if (finish) finish(GeminiStreamErrorNetwork, self.status, kStreamEndedEarlyMarker);
+        } else if (hitLimit) {
+            if (finish) finish(GeminiStreamErrorNone, self.status, kStreamOutputLimitMarker);
+        } else {
+            if (finish) finish(GeminiStreamErrorNone, self.status, nil);
+        }
         return;
     }
 
@@ -321,7 +342,9 @@ didReceiveResponse:(NSURLResponse *)response
     GeminiStreamError result = GeminiStreamErrorNone;
     NSString *detail = nil;
 
-    if (error != nil && !self.gotText) {
+    if (error != nil) {
+        // Also when text already arrived: the chat keeps the partial reply and continues it (a dropped connection must
+        // never look like a finished answer).
         result = GeminiStreamErrorNetwork;
         detail = [NSString stringWithFormat:@"%@ [%@ %ld]", error.localizedDescription, error.domain, (long)error.code];
     } else if (self.status != 200 && !self.gotText) {
@@ -334,6 +357,9 @@ didReceiveResponse:(NSURLResponse *)response
     } else if ((self.inStreamErrorType.length > 0 || self.inStreamErrorMessage.length > 0) && !self.gotText) {
         detail = self.inStreamErrorMessage;
         result = [ClaudeStream errorForStatus:0 type:self.inStreamErrorType message:self.inStreamErrorMessage];
+    } else if ((self.inStreamErrorType.length > 0 || self.inStreamErrorMessage.length > 0) && self.gotText) {
+        detail = self.inStreamErrorMessage ?: self.inStreamErrorType;   // overloaded / server error after part of the reply
+        result = GeminiStreamErrorServer;
     } else if (!self.gotText) {
         result = [self.stopReason isEqualToString:@"refusal"] ? GeminiStreamErrorBlocked : GeminiStreamErrorEmptyReply;
         detail = self.stopReason;
@@ -408,6 +434,8 @@ didReceiveResponse:(NSURLResponse *)response
             self.gotText = YES;
             if (self.onDelta) self.onDelta(text);
         }
+    } else if ([type isEqualToString:@"message_stop"]) {
+        self.sawMessageStop = YES;
     } else if ([type isEqualToString:@"message_delta"]) {
         NSDictionary *delta = [event[@"delta"] isKindOfClass:[NSDictionary class]] ? event[@"delta"] : nil;
         NSDictionary *usage = [event[@"usage"] isKindOfClass:[NSDictionary class]] ? event[@"usage"] : nil;

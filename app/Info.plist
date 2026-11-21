@@ -102,9 +102,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>ClaudeMini uses the camera so you can photograph homework or notes to send to Gemini.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Dùng để ghi âm giọng nói cho tính năng trò chuyện bằng giọng nói.</string>
+	<string>Dùng để ghi âm giọng nói của bạn khi bấm nút mic, để chuyển lời nói thành văn bản.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Dùng để nhận dạng giọng nói thành văn bản khi trò chuyện bằng giọng nói.</string>
+	<string>Dùng để chuyển lời bạn nói thành văn bản khi bấm nút mic.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ClaudeMini reads the photos you choose so you can send them to Gemini.</string>
 	<key>LSRequiresIPhoneOS</key>

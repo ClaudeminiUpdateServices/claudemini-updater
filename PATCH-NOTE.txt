@@ -1,17 +1,13 @@
-ClaudeMini long-code continuation patch
+ClaudeMini 0.7.4-1 (beta)
 
-Replace these files under src/:
-- ChatViewController.m
-- ClaudeStream.m
-- GeminiStream.m
-- AppSettings.m
-- SettingsViewController.m
+Chat:
+- A reply no longer stops half way: if the connection drops, the stream closes quietly, or the model reaches its length limit,
+  the app keeps the text already received and asks the model to continue (Claude and Gemini).
+- Longer waiting time before a quiet connection counts as dead; the screen does not auto-lock while a reply is written.
+- If iOS restarts the chat page during a reply, the text received so far is drawn again.
 
-Behavior:
-- Uses the selected provider model's published output cap when the app output limit is set to 0 (model maximum).
-- Detects Anthropic stop_reason=max_tokens and Gemini finishReason=MAX_TOKENS.
-- Automatically continues up to 10 additional segments, appending each segment to one visible assistant reply and one saved message.
-- Stops safely when the accumulated continuation would consume too much of the model input context; preserves the generated text and displays a continuation notice.
-- Keeps the + tools menu and search chip in ChatViewController.m.
+Mic:
+- Tap the mic, speak, the words appear in the input box, then press send. Tap the mic again to stop.
+- Voice choice, the Live screen and read-aloud were removed.
 
-Provider/model output and context limits still apply. This patch cannot make a provider emit unlimited tokens in one request.
+Version: 0.7.4-1 (beta revision after the dash is read by the updater).

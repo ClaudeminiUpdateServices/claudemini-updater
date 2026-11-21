@@ -16,6 +16,7 @@
 @property (assign, nonatomic) BOOL cancelled;
 @property (assign, nonatomic) BOOL finished;
 @property (assign, nonatomic) BOOL gotText;
+@property (copy, nonatomic) NSString *lastFinishReason;   // set by the final chunk; without it a live stream was cut short
 @property (copy, nonatomic) NSString *blockReason;
 @property (assign, nonatomic) NSInteger inStreamErrorStatus;
 @property (copy, nonatomic) NSString *inStreamErrorMessage;
@@ -65,6 +66,13 @@
         [contents addObject:@{ @"role": [turn[@"role"] isEqualToString:@"assistant"] ? @"model" : @"user", @"parts": parts }];
     }
     return contents;
+}
+
+// Seconds of silence tolerated before the connection counts as dead. Reasoning models can stay quiet for a long time, and a
+// single (non-live) request sends nothing until the whole answer is ready.
++ (NSTimeInterval)idleTimeoutFast:(BOOL)fast streaming:(BOOL)streaming {
+    if (!streaming) return fast ? 300 : 600;
+    return fast ? 150 : 240;
 }
 
 #pragma mark - Control
@@ -133,7 +141,7 @@
     if ([AppSettings webSearchEnabled] && !imageGenerationModel) payload[@"tools"] = @[@{ @"google_search": @{} }];
     NSData *body = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
 
-    NSTimeInterval timeout = self.useFastSpeed ? (self.useStreaming ? 90 : 120) : (self.useStreaming ? 180 : 240);
+    NSTimeInterval timeout = [GeminiStream idleTimeoutFast:self.useFastSpeed streaming:self.useStreaming];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]
                                                            cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                                        timeoutInterval:timeout];
@@ -163,13 +171,14 @@
     [self.errorBody setLength:0];
     self.status = 0;
     self.gotText = NO;
+    self.lastFinishReason = nil;
     self.inStreamErrorStatus = 0;
     self.inStreamErrorMessage = nil;
     self.blockReason = nil;
     self.inputTokenUsage = 0;
     self.outputTokenUsage = 0;
 
-    NSTimeInterval timeout = self.useFastSpeed ? (self.useStreaming ? 90 : 120) : (self.useStreaming ? 180 : 240);
+    NSTimeInterval timeout = [GeminiStream idleTimeoutFast:self.useFastSpeed streaming:self.useStreaming];
     NSURLSessionConfiguration *config = [NSURLSessionConfiguration ephemeralSessionConfiguration];
     config.timeoutIntervalForRequest = timeout;
     config.timeoutIntervalForResource = 3600;
@@ -265,7 +274,17 @@ didReceiveResponse:(NSURLResponse *)response
         self.onImage = nil;
         self.onUsage = nil;
         self.onFinish = nil;
-        if (finish) finish(GeminiStreamErrorNone, self.status, nil);
+        // A live stream that closed without a final chunk (finishReason) was cut short: the chat continues the reply.
+        BOOL cutShort = self.useStreaming && self.lastFinishReason.length == 0;
+        // The length limit stopped the reply: the chat asks for the rest.
+        BOOL hitLimit = [self.lastFinishReason isEqualToString:@"MAX_TOKENS"];
+        if (cutShort) {
+            if (finish) finish(GeminiStreamErrorNetwork, self.status, kStreamEndedEarlyMarker);
+        } else if (hitLimit) {
+            if (finish) finish(GeminiStreamErrorNone, self.status, kStreamOutputLimitMarker);
+        } else {
+            if (finish) finish(GeminiStreamErrorNone, self.status, nil);
+        }
         return;
     }
 
@@ -316,7 +335,8 @@ didReceiveResponse:(NSURLResponse *)response
     GeminiStreamError result = GeminiStreamErrorNone;
     NSString *detail = nil;
 
-    if (error != nil && !self.gotText) {
+    if (error != nil) {
+        // Also when text already arrived: the chat keeps the partial reply and continues it.
         result = GeminiStreamErrorNetwork;
         detail = [NSString stringWithFormat:@"%@ [%@ %ld]", error.localizedDescription, error.domain, (long)error.code];
     } else if (self.status != 200 && !self.gotText) {
@@ -328,6 +348,9 @@ didReceiveResponse:(NSURLResponse *)response
     } else if (self.inStreamErrorStatus != 0 && !self.gotText) {
         detail = self.inStreamErrorMessage;
         result = [GeminiStream errorForStatus:self.inStreamErrorStatus message:self.inStreamErrorMessage];
+    } else if (self.inStreamErrorStatus != 0 && self.gotText) {
+        detail = self.inStreamErrorMessage;   // error after part of the reply: the chat keeps it and continues
+        result = GeminiStreamErrorServer;
     } else if (!self.gotText) {
         result = self.blockReason.length > 0 ? GeminiStreamErrorBlocked : GeminiStreamErrorEmptyReply;
         detail = self.blockReason;
@@ -421,6 +444,7 @@ didReceiveResponse:(NSURLResponse *)response
     }
 
     NSString *finishReason = [candidate[@"finishReason"] isKindOfClass:[NSString class]] ? candidate[@"finishReason"] : nil;
+    if (finishReason.length > 0) self.lastFinishReason = finishReason;
     if (finishReason.length > 0 && !self.gotText) {
         NSArray *blocking = @[@"SAFETY", @"PROHIBITED_CONTENT", @"BLOCKLIST", @"SPII", @"RECITATION", @"IMAGE_SAFETY"];
         if ([blocking containsObject:finishReason]) self.blockReason = finishReason;

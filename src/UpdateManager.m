@@ -12,10 +12,13 @@ static NSString *const kRelaunchMarker = @"/var/mobile/Library/Caches/ClaudeMini
 
 #pragma mark - Version helpers
 
-// "0.7.3" -> @[0,7,3]
+// "0.7.3" -> @[0,7,3]; a beta revision after a dash counts as a further part: "0.7.4-1" -> @[0,7,4,1]
 static NSArray<NSNumber *> *VersionParts(NSString *version) {
     NSMutableArray *parts = [NSMutableArray array];
-    for (NSString *piece in [version componentsSeparatedByString:@"."]) [parts addObject:@([piece integerValue])];
+    for (NSString *piece in [version componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@".-"]]) {
+        if (piece.length == 0) continue;
+        [parts addObject:@([piece integerValue])];
+    }
     return parts;
 }
 
@@ -31,23 +34,42 @@ static NSComparisonResult CompareVersions(NSString *a, NSString *b) {
     return NSOrderedSame;
 }
 
-// Finds "0.7.3" and an optional build number ("-b46", "-build46", "_b46", "+46") in a tag or a file name.
+// Finds the version ("0.7.3", or "0.7.4-1" with a beta revision) and an optional CI build number in a tag or a file name:
+//   v0.7.3-b46   0.7.3-46_iphoneos-arm.deb   v0.7.4-1-b9   0.7.4-1-9_iphoneos-arm.deb   ClaudeMini_0.7.4-1.ipa
 static BOOL ParseVersion(NSString *text, NSString **version, NSInteger *build) {
     if (![text isKindOfClass:[NSString class]] || text.length == 0) return NO;
     NSRegularExpression *re = [NSRegularExpression regularExpressionWithPattern:@"(\\d+(?:\\.\\d+){1,3})" options:0 error:nil];
     NSTextCheckingResult *m = [re firstMatchInString:text options:0 range:NSMakeRange(0, text.length)];
     if (!m) return NO;
-    if (version) *version = [text substringWithRange:[m rangeAtIndex:1]];
-    NSInteger b = 0;
+    NSString *base = [text substringWithRange:[m rangeAtIndex:1]];
+    NSInteger b = 0, revision = 0;
     NSString *rest = [text substringFromIndex:NSMaxRange(m.range)];
-    NSRegularExpression *rb = [NSRegularExpression regularExpressionWithPattern:@"^[-_+]?(?:b|build|r)[-_]?(\\d+)|^\\+(\\d+)|^-(\\d+)(?![\\d.])" options:NSRegularExpressionCaseInsensitive error:nil];
-    NSTextCheckingResult *mb = [rb firstMatchInString:rest options:0 range:NSMakeRange(0, rest.length)];
-    if (mb) {
-        for (NSUInteger i = 1; i < mb.numberOfRanges; i++) {
-            NSRange r = [mb rangeAtIndex:i];
-            if (r.location != NSNotFound) { b = [[rest substringWithRange:r] integerValue]; break; }
+    NSRange whole = NSMakeRange(0, rest.length);
+
+    // revision followed by a build: "-1-b9", "-1-9_"
+    NSRegularExpression *rRevBuild = [NSRegularExpression regularExpressionWithPattern:@"^-(\\d+)[-_+](?:b|build|r)?[-_]?(\\d+)(?!\\d|\\.\\d)" options:NSRegularExpressionCaseInsensitive error:nil];
+    NSTextCheckingResult *mrb = [rRevBuild firstMatchInString:rest options:0 range:whole];
+    if (mrb) {
+        revision = [[rest substringWithRange:[mrb rangeAtIndex:1]] integerValue];
+        b = [[rest substringWithRange:[mrb rangeAtIndex:2]] integerValue];
+    } else {
+        // revision only, in a local (non-CI) file name: "ClaudeMini_0.7.4-1.ipa"
+        NSRegularExpression *rRev = [NSRegularExpression regularExpressionWithPattern:@"^-(\\d+)(?=\\.(?:ipa|deb)(?:\\.enc)?$)" options:NSRegularExpressionCaseInsensitive error:nil];
+        NSTextCheckingResult *mr = [rRev firstMatchInString:rest options:0 range:whole];
+        if (mr) {
+            revision = [[rest substringWithRange:[mr rangeAtIndex:1]] integerValue];
+        } else {
+            NSRegularExpression *rb = [NSRegularExpression regularExpressionWithPattern:@"^[-_+]?(?:b|build|r)[-_]?(\\d+)|^\\+(\\d+)|^-(\\d+)(?![\\d.])" options:NSRegularExpressionCaseInsensitive error:nil];
+            NSTextCheckingResult *mb = [rb firstMatchInString:rest options:0 range:whole];
+            if (mb) {
+                for (NSUInteger i = 1; i < mb.numberOfRanges; i++) {
+                    NSRange r = [mb rangeAtIndex:i];
+                    if (r.location != NSNotFound) { b = [[rest substringWithRange:r] integerValue]; break; }
+                }
+            }
         }
     }
+    if (version) *version = revision > 0 ? [NSString stringWithFormat:@"%@-%ld", base, (long)revision] : base;
     if (build) *build = b;
     return YES;
 }

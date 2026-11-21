@@ -286,3 +286,7 @@
 "dev_minutes" = "%ld phút";
 "dev_err_locked" = "Phiên developer đã khóa. Hãy nhập lại mật khẩu.";
 "dev_err_decrypt" = "Không giải mã được bản dựng (sai khóa hoặc file đã bị sửa).";
+"voice_denied" = "Cần cho phép micro và nhận dạng giọng nói cho ClaudeMini trong Cài đặt của iPhone.";
+"voice_unavailable" = "Không dùng được nhận dạng giọng nói lúc này. Hãy kiểm tra kết nối mạng rồi thử lại.";
+"voice_no_speech" = "Không nghe thấy gì. Hãy bấm mic và nói lại.";
+"voice_failed" = "Không ghi âm được. Hãy thử lại.";
