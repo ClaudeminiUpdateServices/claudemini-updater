@@ -21,6 +21,7 @@
 #import "ModelPickerViewController.h"
 #import "ModelPopupViewController.h"
 #import "ConfirmPopupViewController.h"
+#import "ChoicePopupViewController.h"
 #import "UpdateManager.h"
 #import "KeyTier.h"
 #import "OfficeExport.h"
@@ -1139,7 +1140,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
 - (void)mentionTapped {
     [self.view endEditing:YES];
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"@ Công cụ" message:@"Chọn tác vụ hoặc tích hợp" preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:@"@ Công cụ" message:@"Chọn tác vụ hoặc tích hợp"];
     __weak typeof(self) weakSelf = self;
     NSArray *recent = self.conversation[@"messages"];
     NSString *lastReply = nil;
@@ -1147,35 +1148,33 @@ static const CGFloat kDrawerWidthRatio = 0.62;
         NSDictionary *message = recent[(NSUInteger)i];
         if (![message[@"role"] isEqualToString:@"user"] && [message[@"text"] isKindOfClass:[NSString class]] && [message[@"text"] length] > 0) { lastReply = message[@"text"]; break; }
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Tạo tệp TXT" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:@"Tạo tệp TXT" style:UIAlertActionStyleDefault handler:^(id a) {
         NSString *source = lastReply.length > 0 ? lastReply : [weakSelf trimmedInput];
         if (source.length > 0) [weakSelf exportText:source asWord:NO];
         else [weakSelf showAlertMessage:@"Hãy nhập nội dung hoặc tạo câu trả lời trước khi xuất tệp TXT."];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Tạo tệp DOCX" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:@"Tạo tệp DOCX" style:UIAlertActionStyleDefault handler:^(id a) {
         NSString *source = lastReply.length > 0 ? lastReply : [weakSelf trimmedInput];
         if (source.length > 0) [weakSelf exportText:source asWord:YES];
         else [weakSelf showAlertMessage:@"Hãy nhập nội dung hoặc tạo câu trả lời trước khi xuất tệp DOCX."];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"Chọn tệp để đính kèm…" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:@"Chọn tệp để đính kèm…" style:UIAlertActionStyleDefault handler:^(id a) {
         [weakSelf attachTapped];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:@"/tạo ảnh" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:@"/tạo ảnh" style:UIAlertActionStyleDefault handler:^(id a) {
         weakSelf.textView.text = @"/tạo ảnh ";
         [weakSelf textViewDidChange:weakSelf.textView];
         [weakSelf.textView becomeFirstResponder];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:[AppSettings webSearchEnabled] ? @"Tắt tìm kiếm web" : @"Bật tìm kiếm web" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { [weakSelf searchTapped]; }]];
+    [sheet addAction:[ChoiceAction actionWithTitle:[AppSettings webSearchEnabled] ? @"Tắt tìm kiếm web" : @"Bật tìm kiếm web" style:UIAlertActionStyleDefault handler:^(id a) { [weakSelf searchTapped]; }]];
     NSArray *external = @[@"Gmail", @"Google Calendar", @"Google Docs", @"Google Drive", @"Google Home", @"Google Keep", @"Google Photos", @"Google Sheets", @"Google Tasks"];
     for (NSString *name in external) {
-        [sheet addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [sheet addAction:[ChoiceAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(id a) {
             [weakSelf showAlertMessage:[NSString stringWithFormat:@"%@ cần kết nối OAuth/API riêng. Phiên bản này chưa có thông tin xác thực để truy cập tài khoản.", name]];
         }]];
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    sheet.popoverPresentationController.sourceView = self.mentionButton;
-    sheet.popoverPresentationController.sourceRect = self.mentionButton.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 - (void)updateDailyTokenPrompt {
@@ -1567,20 +1566,16 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 }
 
 - (void)offerExportForText:(NSString *)text {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"export_file")
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:L(@"export_file") message:nil];
     __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"export_txt") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"export_txt") style:UIAlertActionStyleDefault handler:^(id action) {
         [weakSelf exportText:text asWord:NO];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"export_docx") style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"export_docx") style:UIAlertActionStyleDefault handler:^(id action) {
         [weakSelf exportText:text asWord:YES];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    sheet.popoverPresentationController.sourceView = self.view;
-    sheet.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMaxY(self.view.bounds) - 80, 1, 1);
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 - (void)exportText:(NSString *)text asWord:(BOOL)asWord {

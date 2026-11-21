@@ -1,5 +1,6 @@
 #import "SettingsViewController.h"
 #import "Strings.h"
+#import "ChoicePopupViewController.h"
 #import "Theme.h"
 #import "KeyStore.h"
 #import "AppSettings.h"
@@ -996,22 +997,17 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (void)chooseReasoningLevel {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:@"Mức suy luận AI"
-                                                                   message:@"Mức thực tế phụ thuộc model và API. MAX ×8 không thể vượt giới hạn nhà cung cấp."
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:@"Mức suy luận AI" message:@"Mức thực tế phụ thuộc model và API. MAX ×8 không thể vượt giới hạn nhà cung cấp."];
     NSArray *names = @[@"Thấp", @"Trung bình", @"Cao", @"Siêu cao", @"MAX ×8 (nếu model hỗ trợ)"];
     __weak typeof(self) weakSelf = self;
     [names enumerateObjectsUsingBlock:^(NSString *name, NSUInteger idx, BOOL *stop) {
-        [sheet addAction:[UIAlertAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [sheet addAction:[ChoiceAction actionWithTitle:name style:UIAlertActionStyleDefault handler:^(id a) {
             [AppSettings setReasoningLevel:(AIReasoningLevel)idx];
             [weakSelf.tableView reloadData];
         }]];
     }];
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    NSIndexPath *path = [NSIndexPath indexPathForRow:4 inSection:SettingsSectionAssistant];
-    sheet.popoverPresentationController.sourceView = [self.tableView cellForRowAtIndexPath:path] ?: self.view;
-    sheet.popoverPresentationController.sourceRect = sheet.popoverPresentationController.sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 - (NSString *)contextMemoryName {
@@ -1019,65 +1015,50 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (void)chooseOutputTokens {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"output_tokens_title")
-                                                                   message:L(@"output_tokens_note")
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:L(@"output_tokens_title") message:L(@"output_tokens_note")];
     NSArray *options = @[ @[@2048, @"2,048 tokens"], @[@4096, @"4,096 tokens"], @[@8192, @"8,192 tokens"], @[@16384, @"16,384 tokens"], @[@32768, @"32,768 tokens"], @[@65536, @"65,536 tokens"], @[@128000, @"128,000 tokens"] ];
     __weak typeof(self) weakSelf = self;
     for (NSArray *option in options) {
         NSInteger value = [option[0] integerValue];
-        [sheet addAction:[UIAlertAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [sheet addAction:[ChoiceAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(id a) {
             [AppSettings setMaxOutputTokens:value];
             [weakSelf.tableView reloadData];
         }]];
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    NSIndexPath *path = [NSIndexPath indexPathForRow:2 inSection:SettingsSectionAssistant];
-    sheet.popoverPresentationController.sourceView = [self.tableView cellForRowAtIndexPath:path] ?: self.view;
-    sheet.popoverPresentationController.sourceRect = sheet.popoverPresentationController.sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 - (void)chooseContextMemory {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"context_memory_title")
-                                                                   message:L(@"context_memory_note")
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:L(@"context_memory_title") message:L(@"context_memory_note")];
     NSArray *options = @[ @[@200000, [NSString stringWithFormat:L(@"context_memory_value"), 200]],
                           @[@400000, [NSString stringWithFormat:L(@"context_memory_value"), 400]],
                           @[@600000, [NSString stringWithFormat:L(@"context_memory_value"), 600]] ];
     __weak typeof(self) weakSelf = self;
     for (NSArray *option in options) {
         NSUInteger value = [option[0] unsignedIntegerValue];
-        [sheet addAction:[UIAlertAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [sheet addAction:[ChoiceAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(id a) {
             [AppSettings setContextLimitChars:value];
             [weakSelf.tableView reloadData];
         }]];
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    NSIndexPath *path = [NSIndexPath indexPathForRow:3 inSection:SettingsSectionAssistant];
-    sheet.popoverPresentationController.sourceView = [self.tableView cellForRowAtIndexPath:path] ?: self.view;
-    sheet.popoverPresentationController.sourceRect = sheet.popoverPresentationController.sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 - (void)chooseAttachmentMemory {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"attach_memory_title")
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:L(@"attach_memory_title") message:nil];
     NSArray *options = @[ @[@1, L(@"attach_memory_1")], @[@3, L(@"attach_memory_3")], @[@0, L(@"attach_memory_all")] ];
     __weak typeof(self) weakSelf = self;
     for (NSArray *option in options) {
         NSInteger value = [option[0] integerValue];
-        [sheet addAction:[UIAlertAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        [sheet addAction:[ChoiceAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(id a) {
             [AppSettings setAttachmentMemory:value];
             [weakSelf.tableView reloadData];
         }]];
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    NSIndexPath *path = [NSIndexPath indexPathForRow:1 inSection:SettingsSectionAssistant];
-    sheet.popoverPresentationController.sourceView = [self.tableView cellForRowAtIndexPath:path] ?: self.view;
-    sheet.popoverPresentationController.sourceRect = sheet.popoverPresentationController.sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 #pragma mark - Language
@@ -1101,28 +1082,23 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (void)chooseKeyTier {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"key_tier_title")
-                                                                   message:L(@"key_tier_message")
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:L(@"key_tier_title") message:L(@"key_tier_message")];
     __weak typeof(self) weakSelf = self;
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"key_tier_auto") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"key_tier_auto") style:UIAlertActionStyleDefault handler:^(id a) {
         [KeyTier setGeminiOverride:0];
         [KeyTier invalidateGeminiDetection];
         [weakSelf redetectKeyTier];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"key_tier_free") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"key_tier_free") style:UIAlertActionStyleDefault handler:^(id a) {
         [KeyTier setGeminiOverride:1];
         [weakSelf.tableView reloadData];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"key_tier_paid") style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"key_tier_paid") style:UIAlertActionStyleDefault handler:^(id a) {
         [KeyTier setGeminiOverride:2];
         [weakSelf.tableView reloadData];
     }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    NSIndexPath *path = [NSIndexPath indexPathForRow:2 inSection:SettingsSectionKeys];
-    sheet.popoverPresentationController.sourceView = [self.tableView cellForRowAtIndexPath:path] ?: self.view;
-    sheet.popoverPresentationController.sourceRect = sheet.popoverPresentationController.sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 // Asks Google again (one tiny request) and tells the person what it found.
@@ -1144,13 +1120,11 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (void)chooseLanguage {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:L(@"language")
-                                                                   message:nil
-                                                            preferredStyle:UIAlertControllerStyleActionSheet];
+    ChoicePopupViewController *sheet = [ChoicePopupViewController popupWithTitle:L(@"language") message:nil];
     NSArray *options = @[ @[@"auto", L(@"language_auto")], @[@"vi", @"Ti\u1EBFng Vi\u1EC7t"], @[@"en", @"English"] ];
     for (NSArray *option in options) {
         NSString *value = option[0];
-        UIAlertAction *action = [UIAlertAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) {
+        ChoiceAction *action = [ChoiceAction actionWithTitle:option[1] style:UIAlertActionStyleDefault handler:^(id a) {
             if ([[Loc preference] isEqualToString:value]) return;
             [Loc setPreference:value];
             // The app rebuilds its screens in the new language (the open chat starts fresh).
@@ -1158,11 +1132,8 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
         }];
         [sheet addAction:action];
     }
-    [sheet addAction:[UIAlertAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
-    NSIndexPath *path = [NSIndexPath indexPathForRow:1 inSection:SettingsSectionLook];
-    sheet.popoverPresentationController.sourceView = [self.tableView cellForRowAtIndexPath:path] ?: self.view;
-    sheet.popoverPresentationController.sourceRect = sheet.popoverPresentationController.sourceView.bounds;
-    [self presentViewController:sheet animated:YES completion:nil];
+    [sheet addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [sheet presentFromViewController:self];
 }
 
 #pragma mark - History

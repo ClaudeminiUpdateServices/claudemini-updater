@@ -11,3 +11,5 @@ Mic:
 - Voice choice, the Live screen and read-aloud were removed.
 
 Version: 0.7.4-1 (beta revision after the dash is read by the updater).
+
+Bang chon (beta): thay toan bo menu action sheet cua iOS bang pop-up kieu ClaudeMini (ChoicePopupViewController).
