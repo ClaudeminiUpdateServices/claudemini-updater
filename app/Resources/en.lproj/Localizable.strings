@@ -298,3 +298,13 @@
 "icon_style_dark" = "Dark";
 "icon_style_light_note" = "Original bright icons";
 "icon_style_dark_note" = "Dark icons like iOS dark mode";
+"instr_import_button" = "Import from file (.clmn or .txt)";
+"instr_import_title" = "Import instructions";
+"instr_import_ask" = "The file has %lu characters. How do you want to add it to the instructions?";
+"instr_import_replace" = "Replace the current instructions";
+"instr_import_append" = "Add to the end";
+"instr_import_done" = "Imported %lu characters into the AI instructions.";
+"instr_import_truncated" = "The file was longer than 1 million characters, so it was cut to fit.";
+"instr_err_read" = "This file could not be read. Pick a text file (.clmn or .txt).";
+"instr_err_empty" = "This file is empty.";
+"instr_err_big" = "This file is too large to be instructions.";

@@ -299,3 +299,13 @@
 "icon_style_dark" = "Tối";
 "icon_style_light_note" = "Icon nền sáng, màu như bản gốc";
 "icon_style_dark_note" = "Icon nền tối giống chế độ tối của iOS";
+"instr_import_button" = "Nhập từ tệp (.clmn hoặc .txt)";
+"instr_import_title" = "Nhập chỉ dẫn";
+"instr_import_ask" = "Tệp có %lu ký tự. Bạn muốn đặt vào chỉ dẫn như thế nào?";
+"instr_import_replace" = "Thay thế chỉ dẫn hiện tại";
+"instr_import_append" = "Thêm vào cuối chỉ dẫn";
+"instr_import_done" = "Đã nhập %lu ký tự vào chỉ dẫn AI.";
+"instr_import_truncated" = "Tệp dài hơn 1 triệu ký tự nên đã được cắt bớt cho vừa.";
+"instr_err_read" = "Không đọc được tệp này. Hãy chọn tệp văn bản (.clmn hoặc .txt).";
+"instr_err_empty" = "Tệp này trống.";
+"instr_err_big" = "Tệp quá lớn để làm chỉ dẫn.";

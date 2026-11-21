@@ -21,3 +21,5 @@ Icon toi (lam lai): tach hinh khoi nen bang do phu chinh xac tung pixel (khong c
 Icon toi: mau gradient lay dung tu anh goc (khong tu tao mau); chi nang do sang chung cho Dopamine va Github de khong bi chim vao nen toi.
 
 Hop thoai (beta): thay het UIAlertController (hop thoai xac nhan, thong bao, nhap mat khau dev, doi ten, xoa) bang pop-up ClaudeMini; hop co o nhap tu day len tren ban phim.
+
+Chi dan AI (beta): nut "Nhap tu tep (.clmn hoac .txt)" trong man Chi dan cho AI; mo tep .clmn bang ClaudeMini (Tep, chia se, AirDrop) thi app tu doc va nhap vao chi dan (hoi thay the hoac them vao cuoi neu da co chi dan).

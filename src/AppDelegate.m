@@ -7,6 +7,7 @@
 #import "DiagnosticLog.h"
 #import "MiniNavigationController.h"
 #import "UpdateManager.h"
+#import "InstructionFile.h"
 
 @interface AppDelegate ()
 @property (assign, nonatomic) BOOL showingMain;
@@ -40,6 +41,16 @@
     // Look for a new version a few seconds after launch (the result only shows as a dot on the cog and in Settings).
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [[UpdateManager shared] checkForUpdateForce:NO];
+    });
+    return YES;
+}
+
+// A .clmn instruction file opened with ClaudeMini (Files, share sheet, AirDrop): its text goes into the AI instructions.
+- (BOOL)application:(UIApplication *)app openURL:(NSURL *)url options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
+    if (!url.isFileURL) return NO;
+    // The screens may still be building when the app is launched by the file: give them a moment.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [InstructionFile handleOpenedURL:url];
     });
     return YES;
 }
