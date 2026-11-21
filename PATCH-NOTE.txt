@@ -15,3 +15,5 @@ Version: 0.7.4-1 (beta revision after the dash is read by the updater).
 Bang chon (beta): thay toan bo menu action sheet cua iOS bang pop-up kieu ClaudeMini (ChoicePopupViewController).
 
 Giao dien (beta): them 7 icon che do toi (Default, SideStore, LiveContainer, Dopamine, Chimera, Sileo, Github) ve theo kieu icon toi cua iOS (tools/make_dark_icons.py); man Giao dien gom 3 muc: Icon ung dung (chon Sang/Toi), Theme chat, Mau nhan.
+
+Icon toi (lam lai): tach hinh khoi nen bang do phu chinh xac tung pixel (khong con vien trang), ve lai gradient moi cho tung icon, LiveContainer dung tam nen toi + vien xanh.
