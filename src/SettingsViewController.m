@@ -706,6 +706,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     [self.view addSubview:self.tableView];
     self.collapsedSections = [NSMutableSet set];
     [self applyMaterialStyle];
+    [Material markTableForEntrance:self.tableView];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applyTheme) name:kNotifThemeChanged object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleUIScaleChanged) name:@"UIScaleDidChangeNotification" object:nil];
@@ -816,7 +817,8 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 - (void)applyMaterialStyle {
     BOOL material = [Material active];
     self.tableView.separatorStyle = material ? UITableViewCellSeparatorStyleNone : UITableViewCellSeparatorStyleSingleLine;
-    self.tableView.rowHeight = material ? 68 : UITableViewAutomaticDimension;
+    self.tableView.rowHeight = material ? 64 : UITableViewAutomaticDimension;
+    if (material) [Material decorateTable:self.tableView];
     [Material layoutTable:self.tableView inBounds:self.view.bounds];
     [Material styleTitleForController:self];
 }

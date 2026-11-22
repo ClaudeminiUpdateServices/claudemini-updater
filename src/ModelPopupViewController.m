@@ -6,6 +6,7 @@
 #import "Provider.h"
 #import "Strings.h"
 #import "Theme.h"
+#import "Material.h"
 
 static NSString *const kCellId = @"model";
 
@@ -59,7 +60,7 @@ static NSString *const kCellId = @"model";
 
     self.card = [[UIView alloc] init];
     self.card.backgroundColor = [Theme background];
-    self.card.layer.cornerRadius = 24;
+    self.card.layer.cornerRadius = MR(24, 28);
     self.card.layer.borderWidth = 1;
     self.card.layer.borderColor = [Theme border].CGColor;
     self.card.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -88,7 +89,7 @@ static NSString *const kCellId = @"model";
     self.tableView.separatorColor = [Theme border];
     self.tableView.separatorInset = UIEdgeInsetsMake(0, 68, 0, 0);
     self.tableView.tableFooterView = [[UIView alloc] init];
-    self.tableView.layer.cornerRadius = 16;
+    self.tableView.layer.cornerRadius = MR(16, 20);
     self.tableView.clipsToBounds = YES;
     self.tableView.layer.borderWidth = 1;
     self.tableView.layer.borderColor = [Theme border].CGColor;
@@ -107,7 +108,7 @@ static NSString *const kCellId = @"model";
     [self.moreButton setTitle:L(@"popup_more") forState:UIControlStateNormal];
     [self.moreButton setTitleColor:[Theme accent] forState:UIControlStateNormal];
     self.moreButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    self.moreButton.layer.cornerRadius = 14;
+    self.moreButton.layer.cornerRadius = MR(14, 24);
     self.moreButton.layer.borderWidth = 1.5;
     self.moreButton.layer.borderColor = [Theme accent].CGColor;
     [self.moreButton addTarget:self action:@selector(moreTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -118,7 +119,7 @@ static NSString *const kCellId = @"model";
     [self.doneButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     self.doneButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
     self.doneButton.backgroundColor = [Theme accent];
-    self.doneButton.layer.cornerRadius = 14;
+    self.doneButton.layer.cornerRadius = MR(14, 24);
     [self.doneButton addTarget:self action:@selector(doneTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.card addSubview:self.doneButton];
 

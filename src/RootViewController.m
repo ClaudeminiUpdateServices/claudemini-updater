@@ -1,5 +1,6 @@
 #import "RootViewController.h"
 #import "Theme.h"
+#import "Material.h"
 #import "KeyStore.h"
 #import "GeminiClient.h"
 #import "ClaudeClient.h"
@@ -88,7 +89,7 @@ typedef NS_ENUM(NSInteger, StatusKind) {
     // Key field (container + text field + paste button)
     self.fieldContainer = [[UIView alloc] init];
     self.fieldContainer.backgroundColor = [Theme surface];
-    self.fieldContainer.layer.cornerRadius = 12;
+    self.fieldContainer.layer.cornerRadius = MR(12, 16);
     self.fieldContainer.layer.borderWidth = 1;
     self.fieldContainer.layer.borderColor = [Theme border].CGColor;
     [self.scrollView addSubview:self.fieldContainer];
@@ -122,7 +123,7 @@ typedef NS_ENUM(NSInteger, StatusKind) {
     [self.primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
     [self.primaryButton setTitleColor:[UIColor whiteColor] forState:UIControlStateDisabled];
     self.primaryButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-    self.primaryButton.layer.cornerRadius = 12;
+    self.primaryButton.layer.cornerRadius = MR(12, 26);
     self.primaryButton.clipsToBounds = YES;
     [self.primaryButton addTarget:self action:@selector(verifyTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.scrollView addSubview:self.primaryButton];

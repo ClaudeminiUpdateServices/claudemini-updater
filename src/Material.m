@@ -1,6 +1,7 @@
 #import "Material.h"
 #import "Theme.h"
 #import "Strings.h"
+#import <objc/runtime.h>
 
 static UIColor *Mix(UIColor *a, UIColor *b, CGFloat t) {
     CGFloat ar = 0, ag = 0, ab = 0, aa = 0, br = 0, bg = 0, bb = 0, ba = 0;
@@ -31,6 +32,7 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
 
 @interface MaterialCardView ()
 @property (strong, nonatomic) CAShapeLayer *shape;
+@property (assign, nonatomic) BOOL pressedState;
 @end
 
 @implementation MaterialCardView
@@ -49,13 +51,86 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
     return self;
 }
 
+- (UIBezierPath *)pathForPressed:(BOOL)pressed {
+    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.cardInsets);
+    if (pressed) {
+        CGFloat round = MIN(28, rect.size.height / 2.0);   // fully round when pressed
+        return RoundedPath(rect, round, round);
+    }
+    return RoundedPath(rect, self.topRadius, self.bottomRadius);
+}
+
+- (void)setPressed:(BOOL)pressed animated:(BOOL)animated {
+    if (pressed == self.pressedState) return;
+    self.pressedState = pressed;
+    UIBezierPath *target = [self pressedStatePath];
+    if (animated) {
+        CASpringAnimation *morph = [CASpringAnimation animationWithKeyPath:@"path"];
+        morph.fromValue = (__bridge id)(self.shape.presentationLayer ? ((CAShapeLayer *)self.shape.presentationLayer).path : self.shape.path);
+        morph.toValue = (__bridge id)target.CGPath;
+        morph.mass = 1; morph.stiffness = 420; morph.damping = 24; morph.initialVelocity = 0;
+        morph.duration = morph.settlingDuration;
+        [self.shape addAnimation:morph forKey:@"morph"];
+
+        CASpringAnimation *dip = [CASpringAnimation animationWithKeyPath:@"transform.scale"];
+        dip.fromValue = @([[self.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue] ?: 1);
+        dip.toValue = @(pressed ? 0.975 : 1.0);
+        dip.mass = 1; dip.stiffness = 480; dip.damping = 18; dip.initialVelocity = 0;
+        dip.duration = dip.settlingDuration;
+        [self.layer addAnimation:dip forKey:@"dip"];
+    }
+    self.shape.path = target.CGPath;
+    self.layer.transform = pressed ? CATransform3DMakeScale(0.975, 0.975, 1) : CATransform3DIdentity;
+}
+
+- (UIBezierPath *)pressedStatePath { return [self pathForPressed:self.pressedState]; }
+
+- (void)rippleFrom:(CGPoint)point {
+    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.cardInsets);
+    if (rect.size.width < 2) return;
+    CALayer *host = [CALayer layer];
+    host.frame = self.bounds;
+    CAShapeLayer *clip = [CAShapeLayer layer];
+    clip.frame = self.bounds;
+    clip.path = [self pathForPressed:self.pressedState].CGPath;
+    host.mask = clip;
+    CGFloat maxDistance = 0;
+    CGPoint corners[4] = { rect.origin, CGPointMake(CGRectGetMaxX(rect), rect.origin.y), CGPointMake(rect.origin.x, CGRectGetMaxY(rect)), CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect)) };
+    for (int i = 0; i < 4; i++) maxDistance = MAX(maxDistance, hypot(corners[i].x - point.x, corners[i].y - point.y));
+    CAShapeLayer *circle = [CAShapeLayer layer];
+    circle.fillColor = [[Theme accent] colorWithAlphaComponent:0.20].CGColor;
+    UIBezierPath *start = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(point.x - 1, point.y - 1, 2, 2)];
+    UIBezierPath *end = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(point.x - maxDistance, point.y - maxDistance, maxDistance * 2, maxDistance * 2)];
+    circle.path = end.CGPath;
+    [host addSublayer:circle];
+    [self.layer addSublayer:host];
+
+    CABasicAnimation *grow = [CABasicAnimation animationWithKeyPath:@"path"];
+    grow.fromValue = (__bridge id)start.CGPath; grow.toValue = (__bridge id)end.CGPath;
+    grow.duration = 0.55;
+    grow.timingFunction = [CAMediaTimingFunction functionWithControlPoints:0.05 :0.7 :0.1 :1.0];   // emphasized decelerate
+    CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
+    fade.fromValue = @1; fade.toValue = @0; fade.beginTime = CACurrentMediaTime() + 0.18; fade.fillMode = kCAFillModeBackwards;
+    fade.duration = 0.42;
+    CAAnimationGroup *group = [CAAnimationGroup animation];
+    group.animations = @[grow, fade];
+    group.duration = 0.62;
+    group.removedOnCompletion = YES;
+    [CATransaction begin];
+    [CATransaction setCompletionBlock:^{ [host removeFromSuperlayer]; }];
+    [circle addAnimation:group forKey:@"ripple"];
+    circle.opacity = 0;
+    [CATransaction commit];
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.cardInsets);
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     self.shape.frame = self.bounds;
-    self.shape.path = RoundedPath(rect, self.topRadius, self.bottomRadius).CGPath;
+    self.shape.path = [self pathForPressed:self.pressedState].CGPath;
+    (void)rect;
     self.shape.fillColor = (self.fillColor ?: [Theme surface]).CGColor;
     [CATransaction commit];
 }
@@ -327,7 +402,7 @@ static const CGFloat kSliderTrackHeight = 28;
     self = [super initWithFrame:frame];
     if (self) {
         _label = [[UILabel alloc] init];
-        _label.font = [UIFont systemFontOfSize:14 weight:UIFontWeightBold];
+        _label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
         _label.textColor = [Theme accent];
         [self addSubview:_label];
         _chevron = [[UIImageView alloc] init];
@@ -357,6 +432,83 @@ static const CGFloat kSliderTrackHeight = 28;
 - (CGSize)intrinsicContentSize { return CGSizeMake(10000, 44); }
 @end
 
+#pragma mark - Press handling of table rows
+
+@interface MaterialPressHandler : NSObject <UIGestureRecognizerDelegate>
+@property (weak, nonatomic) UITableView *table;
+@property (weak, nonatomic) MaterialCardView *pressedCard;
+@property (assign, nonatomic) CGPoint start;
+@end
+
+@implementation MaterialPressHandler
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)a shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)b { return YES; }
+
+- (void)release_ {
+    [self.pressedCard setPressed:NO animated:YES];
+    self.pressedCard = nil;
+}
+
+- (void)pressed:(UILongPressGestureRecognizer *)gesture {
+    if (![Material active]) { [self release_]; return; }
+    CGPoint point = [gesture locationInView:self.table];
+    if (gesture.state == UIGestureRecognizerStateBegan) {
+        self.start = point;
+        NSIndexPath *path = [self.table indexPathForRowAtPoint:point];
+        UITableViewCell *cell = path ? [self.table cellForRowAtIndexPath:path] : nil;
+        if ([cell.backgroundView isKindOfClass:[MaterialCardView class]]) {
+            MaterialCardView *card = (MaterialCardView *)cell.backgroundView;
+            self.pressedCard = card;
+            [card setPressed:YES animated:YES];
+            [card rippleFrom:[gesture locationInView:card]];
+        }
+    } else if (gesture.state == UIGestureRecognizerStateChanged) {
+        if (hypot(point.x - self.start.x, point.y - self.start.y) > 12) [self release_];   // it became a scroll
+    } else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled || gesture.state == UIGestureRecognizerStateFailed) {
+        [self release_];
+    }
+}
+
+@end
+
+#pragma mark - Buttons: spring dip while pressed (Material design only)
+
+@interface UIButton (MaterialPress)
+@end
+
+@implementation UIButton (MaterialPress)
+
++ (void)load {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        Method original = class_getInstanceMethod(self, @selector(setHighlighted:));
+        Method replacement = class_getInstanceMethod(self, @selector(mat_setHighlighted:));
+        if (original && replacement) method_exchangeImplementations(original, replacement);
+    });
+}
+
+- (void)mat_setHighlighted:(BOOL)highlighted {
+    BOOL changed = self.highlighted != highlighted;
+    [self mat_setHighlighted:highlighted];   // the original
+    if (!changed || ![Theme materialDesign] || UIAccessibilityIsReduceMotionEnabled()) return;
+    if (!CATransform3DIsIdentity(self.layer.transform) && ![self.layer animationForKey:@"matpress"]) return;   // a button that is rotated / scaled on purpose keeps its own transform
+    if (self.bounds.size.width < 24 || self.bounds.size.height < 24) return;
+    CALayer *layer = self.layer;
+    CGFloat current = [[layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
+    if (current < 0.5) current = 1;
+    CASpringAnimation *spring = [CASpringAnimation animationWithKeyPath:@"transform.scale"];
+    spring.fromValue = @(current);
+    spring.toValue = @(highlighted ? 0.93 : 1.0);
+    spring.mass = 1; spring.stiffness = highlighted ? 520 : 380; spring.damping = highlighted ? 26 : 15;
+    spring.duration = spring.settlingDuration;
+    spring.fillMode = kCAFillModeForwards;
+    spring.removedOnCompletion = !highlighted;
+    [layer removeAnimationForKey:@"matpress"];
+    [layer addAnimation:spring forKey:@"matpress"];
+}
+
+@end
+
 #pragma mark - Material
 
 @implementation Material
@@ -371,7 +523,8 @@ static const CGFloat kSliderTrackHeight = 28;
     if (![self active]) return;
     table.separatorStyle = UITableViewCellSeparatorStyleNone;
     table.showsVerticalScrollIndicator = NO;
-    if (table.rowHeight < 60) table.rowHeight = 68;
+    if (table.rowHeight < 60) table.rowHeight = 64;
+    [self installTableEffects:table];
 }
 
 + (void)layoutTable:(UITableView *)table inBounds:(CGRect)bounds {
@@ -422,7 +575,61 @@ static const CGFloat kSliderTrackHeight = 28;
         chevron.tintColor = [Theme secondaryText];
         cell.accessoryView = chevron;
     }
-    if (cell.detailTextLabel.text.length > 0) cell.detailTextLabel.font = [UIFont systemFontOfSize:14];
+    // Balanced sizes: 16 pt title, 13 pt supporting text (the reference app uses small, calm text).
+    cell.textLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    if (cell.detailTextLabel.text.length > 0) cell.detailTextLabel.font = [UIFont systemFontOfSize:13];
+    [self enterCell:cell atIndexPath:indexPath inTable:table];
+}
+
+#pragma mark - Expressive motion
+
+static const void *kEntranceKey = &kEntranceKey;
+static const void *kPressHandlerKey = &kPressHandlerKey;
+
++ (CGFloat)classic:(CGFloat)classic material:(CGFloat)material { return [self active] ? material : classic; }
+
++ (void)springAnimations:(void (^)(void))animations {
+    if (UIAccessibilityIsReduceMotionEnabled()) { animations(); return; }
+    [UIView animateWithDuration:0.55 delay:0 usingSpringWithDamping:0.78 initialSpringVelocity:0.5
+                        options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
+                     animations:animations completion:nil];
+}
+
+// The rows that appear in the next moment spring up one after another (first screen opening, or after a reload).
++ (void)markTableForEntrance:(UITableView *)table {
+    if (![self active] || UIAccessibilityIsReduceMotionEnabled()) return;
+    objc_setAssociatedObject(table, kEntranceKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    __weak UITableView *weakTable = table;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (weakTable) objc_setAssociatedObject(weakTable, kEntranceKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    });
+}
+
++ (void)enterCell:(UITableViewCell *)cell atIndexPath:(NSIndexPath *)indexPath inTable:(UITableView *)table {
+    if (![objc_getAssociatedObject(table, kEntranceKey) boolValue]) return;
+    NSInteger order = 0;
+    for (NSInteger section = 0; section < indexPath.section; section++) order += [table numberOfRowsInSection:section];
+    order += indexPath.row;
+    if (order > 14) return;
+    cell.alpha = 0;
+    cell.transform = CGAffineTransformConcat(CGAffineTransformMakeScale(0.94, 0.94), CGAffineTransformMakeTranslation(0, 26));
+    [UIView animateWithDuration:0.62 delay:0.035 * order usingSpringWithDamping:0.74 initialSpringVelocity:0.4
+                        options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
+                     animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
+}
+
++ (void)installTableEffects:(UITableView *)table {
+    if (objc_getAssociatedObject(table, kPressHandlerKey)) return;
+    MaterialPressHandler *handler = [[MaterialPressHandler alloc] init];
+    handler.table = table;
+    UILongPressGestureRecognizer *press = [[UILongPressGestureRecognizer alloc] initWithTarget:handler action:@selector(pressed:)];
+    press.minimumPressDuration = 0;
+    press.cancelsTouchesInView = NO;
+    press.delaysTouchesBegan = NO;
+    press.delaysTouchesEnded = NO;
+    press.delegate = handler;
+    [table addGestureRecognizer:press];
+    objc_setAssociatedObject(table, kPressHandlerKey, handler, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 + (CGFloat)headerHeight { return 54; }

@@ -1,6 +1,7 @@
 #import "SystemPromptViewController.h"
 #import "Strings.h"
 #import "Theme.h"
+#import "Material.h"
 #import "AppSettings.h"
 #import "InstructionFile.h"
 
@@ -33,7 +34,7 @@
     [self.importButton setTitle:L(@"instr_import_button") forState:UIControlStateNormal];
     [self.importButton setTitleColor:[Theme accent] forState:UIControlStateNormal];
     self.importButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    self.importButton.layer.cornerRadius = 12;
+    self.importButton.layer.cornerRadius = MR(12, 22);
     self.importButton.layer.borderWidth = 1.5;
     self.importButton.layer.borderColor = [Theme accent].CGColor;
     [self.importButton addTarget:self action:@selector(importTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -41,7 +42,7 @@
 
     self.textView = [[UITextView alloc] init];
     self.textView.backgroundColor = [Theme surface];
-    self.textView.layer.cornerRadius = 12;
+    self.textView.layer.cornerRadius = MR(12, 16);
     self.textView.layer.borderWidth = 1;
     self.textView.layer.borderColor = [Theme border].CGColor;
     self.textView.font = [UIFont systemFontOfSize:16];

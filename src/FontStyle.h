@@ -9,3 +9,6 @@
 // "ui-rounded, ..." / "-apple-system, ..." stack for the web view, and the numeric CSS weight for the chosen step.
 NSString *CMWebFontStack(void);
 NSInteger CMWebFontWeight(void);
+
+// @font-face rules for iOS 12 (no ui-rounded there); empty on iOS 13+.
+NSString *CMRoundedFontFaceCSS(void);

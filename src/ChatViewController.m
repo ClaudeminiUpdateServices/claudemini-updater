@@ -876,7 +876,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     self.inputBox = [[UIView alloc] init];
     self.inputBox.backgroundColor = [Theme surface];
-    self.inputBox.layer.cornerRadius = 22;
+    self.inputBox.layer.cornerRadius = MR(22, 28);
     self.inputBox.layer.borderWidth = 1;
     self.inputBox.layer.borderColor = [Theme border].CGColor;
     [self.inputBar addSubview:self.inputBox];
@@ -1100,7 +1100,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
                                                             (CGRectGetHeight(self.view.bounds) - cardHeight) / 2.0,
                                                             cardWidth, cardHeight)];
     card.backgroundColor = [Theme surface];
-    card.layer.cornerRadius = 25.0;
+    card.layer.cornerRadius = MR(25, 28);
     card.layer.borderWidth = 1.0;
     card.layer.borderColor = [Theme border].CGColor;
     card.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -1362,6 +1362,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     CGFloat scale = [AppSettings uiScale];
     css = [css stringByAppendingFormat:@"\n:root{--serif:%@;--ui-font:%@;}", [self serifCSSValue], CMWebFontStack()];
+    css = [css stringByAppendingFormat:@"\n%@", CMRoundedFontFaceCSS()];
     css = [css stringByAppendingFormat:@"\n%@", [self scaleCSSRuleForScaleMaterialAware:scale]];
     html = [html stringByReplacingOccurrencesOfString:@"{{CSS}}" withString:css];
     html = [html stringByReplacingOccurrencesOfString:@"{{JS}}" withString:js];
@@ -1463,6 +1464,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self.inputBar viewWithTag:1001].backgroundColor = [Theme border];
     self.inputBox.backgroundColor = [Theme surface];
     self.inputBox.layer.borderColor = [Theme border].CGColor;
+    self.inputBox.layer.cornerRadius = MR(22, 28);   // Material 3 shape; changes at once with the design switch
     self.attachButton.tintColor = [Theme secondaryText];
     self.textView.textColor = [Theme text];
     self.textView.tintColor = [Theme accent];
@@ -1480,7 +1482,8 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     if (self.pendingAttachments.count > 0 || self.importsInFlight > 0) [self refreshAttachStrip];
 
     [self setNeedsStatusBarAppearanceUpdate];
-    [self pushThemeToWeb];
+     [self pushThemeToWeb];
+     [self applyUIScaleToNativeAndWeb];   // design (Material radii) and font follow the theme at once
     [self.view setNeedsLayout];
 }
 
@@ -2286,7 +2289,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 - (void)addToolMenuRowToCard:(UIView *)card y:(CGFloat)y icon:(NSString *)icon title:(NSString *)title subtitle:(NSString *)subtitle tag:(NSInteger)tag width:(CGFloat)width {
     UIControl *row = [[UIControl alloc] initWithFrame:CGRectMake(10, y, width - 20, 46)];
     row.tag = tag;
-    row.layer.cornerRadius = 13;
+    row.layer.cornerRadius = MR(13, 16);
     row.backgroundColor = [UIColor clearColor];
     [row addTarget:self action:@selector(toolMenuItemTapped:) forControlEvents:UIControlEventTouchUpInside];
 
@@ -2351,7 +2354,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     self.toolMenuCard = [[UIView alloc] initWithFrame:CGRectMake((width - cardWidth) / 2.0, cardY, cardWidth, cardHeight)];
     self.toolMenuCard.backgroundColor = [Theme surface];
-    self.toolMenuCard.layer.cornerRadius = 22.0;
+    self.toolMenuCard.layer.cornerRadius = MR(22, 28);
     self.toolMenuCard.layer.borderWidth = 1.0;
     self.toolMenuCard.layer.borderColor = [Theme border].CGColor;
     self.toolMenuCard.layer.shadowColor = [UIColor blackColor].CGColor;

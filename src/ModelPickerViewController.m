@@ -1,6 +1,7 @@
 #import "ModelPickerViewController.h"
 #import "Strings.h"
 #import "Theme.h"
+#import "Material.h"
 #import "KeyStore.h"
 #import "GeminiClient.h"
 #import "ClaudeClient.h"
@@ -76,7 +77,7 @@
     CGSize size = [label sizeThatFits:CGSizeMake(width - 32 - 28, CGFLOAT_MAX)];
     UIView *box = [[UIView alloc] initWithFrame:CGRectMake(16, 14, width - 32, ceil(size.height) + 24)];
     box.backgroundColor = [[Theme accent] colorWithAlphaComponent:0.12];
-    box.layer.cornerRadius = 14;
+    box.layer.cornerRadius = MR(14, 20);
     box.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     label.frame = CGRectMake(14, 12, box.bounds.size.width - 28, ceil(size.height));
     label.autoresizingMask = UIViewAutoresizingFlexibleWidth;

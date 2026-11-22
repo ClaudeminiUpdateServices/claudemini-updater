@@ -189,6 +189,7 @@ static const CGSize kModePreviewSize = { 84, 148 };
 - (void)applyMaterialStyle {
     BOOL material = [Material active];
     self.tableView.separatorStyle = material ? UITableViewCellSeparatorStyleNone : UITableViewCellSeparatorStyleSingleLine;
+    if (material) [Material decorateTable:self.tableView];
     [Material layoutTable:self.tableView inBounds:self.view.bounds];
     [Material styleTitleForController:self];
 }
@@ -630,6 +631,7 @@ static NSCache *ImageCache(void) {
 - (void)setDesign:(BOOL)material {
     if ([Theme materialDesign] == material) return;
     [Theme setMaterialDesign:material];
+    [Material markTableForEntrance:self.tableView];   // the rows spring in after the switch
     [Theme postChange];
 }
 

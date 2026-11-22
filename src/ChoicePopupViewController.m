@@ -1,6 +1,7 @@
 #import "ChoicePopupViewController.h"
 #import "Strings.h"
 #import "Theme.h"
+#import "Material.h"
 
 @interface ChoiceAction ()
 @property (copy, nonatomic) NSString *title;
@@ -85,7 +86,7 @@ static const CGFloat kButtonHeight = 48;
     field.textColor = [Theme text];
     field.tintColor = [Theme accent];
     field.backgroundColor = [Theme surface];
-    field.layer.cornerRadius = 12;
+    field.layer.cornerRadius = MR(12, 16);
     field.layer.borderWidth = 1;
     field.layer.borderColor = [Theme border].CGColor;
     field.keyboardAppearance = [Theme keyboardAppearance];
@@ -119,7 +120,7 @@ static const CGFloat kButtonHeight = 48;
     button.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     button.titleLabel.numberOfLines = 2;
     button.titleLabel.textAlignment = NSTextAlignmentCenter;
-    button.layer.cornerRadius = 14;
+    button.layer.cornerRadius = MR(14, 24);
     button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
     if (primary) {
         UIColor *fill = action.style == UIAlertActionStyleDestructive ? [UIColor colorWithRed:0.86 green:0.22 blue:0.22 alpha:1.0] : [Theme accent];
@@ -143,7 +144,7 @@ static const CGFloat kButtonHeight = 48;
 
     self.card = [[UIView alloc] init];
     self.card.backgroundColor = [Theme background];
-    self.card.layer.cornerRadius = 24;
+    self.card.layer.cornerRadius = MR(24, 28);
     self.card.layer.borderWidth = 1;
     self.card.layer.borderColor = [Theme border].CGColor;
     self.card.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -196,7 +197,7 @@ static const CGFloat kButtonHeight = 48;
             UIButton *row = [UIButton buttonWithType:UIButtonTypeCustom];
             row.tag = (NSInteger)i;
             row.backgroundColor = [Theme surface];
-            row.layer.cornerRadius = 14;
+            row.layer.cornerRadius = MR(14, 20);
             row.layer.borderWidth = 1;
             row.layer.borderColor = [Theme border].CGColor;
             UIColor *color = action.style == UIAlertActionStyleDestructive ? [UIColor colorWithRed:0.90 green:0.22 blue:0.22 alpha:1.0] : [Theme text];

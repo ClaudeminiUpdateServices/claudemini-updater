@@ -5,6 +5,7 @@
 #import "ChoicePopupViewController.h"
 #import "Strings.h"
 #import "Theme.h"
+#import "Material.h"
 
 static NSString *SizeText(long long bytes) {
     if (bytes <= 0) return @"";
@@ -84,7 +85,7 @@ static const CGFloat kCardIcon = 60;
     // iOS style: a wide filled blue button, and a plain text button under it.
     self.primaryButton = [UIButton buttonWithType:UIButtonTypeCustom];
     self.primaryButton.backgroundColor = [Theme accent];
-    self.primaryButton.layer.cornerRadius = 12;
+    self.primaryButton.layer.cornerRadius = MR(12, 26);
     self.primaryButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     self.primaryButton.titleLabel.adjustsFontSizeToFitWidth = YES;
     self.primaryButton.titleLabel.minimumScaleFactor = 0.8;
@@ -208,6 +209,8 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
     self.tableView.backgroundColor = [Theme background];
     self.tableView.separatorColor = [Theme border];
     [self.view addSubview:self.tableView];
+    [self applyMaterialStyle];
+    [Material markTableForEntrance:self.tableView];
 
     __weak typeof(self) weakSelf = self;
     self.card = [[SoftwareUpdateCard alloc] initWithFrame:CGRectZero];
@@ -225,8 +228,21 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
+- (void)applyMaterialStyle {
+    BOOL material = [Material active];
+    self.tableView.separatorStyle = material ? UITableViewCellSeparatorStyleNone : UITableViewCellSeparatorStyleSingleLine;
+    if (material) [Material decorateTable:self.tableView];
+    [Material layoutTable:self.tableView inBounds:self.view.bounds];
+    [Material styleTitleForController:self];
+}
+
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+    [Material decorateCell:cell atIndexPath:indexPath inTable:tableView];
+}
+
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self applyMaterialStyle];
     if (!self.started) {
         self.started = YES;
         UpdateManager *m = [UpdateManager shared];
@@ -248,6 +264,7 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
     self.view.backgroundColor = [Theme background];
     self.tableView.backgroundColor = [Theme background];
     self.tableView.separatorColor = [Theme border];
+    [self applyMaterialStyle];
     [self.card restyle];
     [self.tableView reloadData];
 }
@@ -451,6 +468,7 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    [Material layoutTable:self.tableView inBounds:self.view.bounds];
     CGFloat height = [self.card heightForWidth:self.tableView.bounds.size.width];
     if (fabs(height - self.cardHeight) > 0.5) {
         self.cardHeight = height;

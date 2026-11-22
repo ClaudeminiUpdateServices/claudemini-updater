@@ -53,3 +53,10 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Chat theme: new wallpaper "Gradient động" (moving gradient built from the accent colour, light or dark).
 - Font page: SF Rounded added (rounded design of the system font, iOS 13+; iOS 12 keeps the normal system font) and a 7-step weight slider. All [UIFont systemFontOfSize:...] go through FontStyle.m (method exchange), the chat web view gets the same font stack and weight.
 - Not compiled or run on a device.
+
+[0.8.0 beta]
+- Bundled SF Pro Rounded (9 weights, app/Resources/Fonts), registered through CoreText; works on iOS 12 too, in the app and in the chat web view.
+- Material 3 now applies to the whole app: pop-ups, model picker, system prompt, software update, chat input and cards (larger corner radii, tonal rows, spring press and ripple, entrance animation of rows).
+- Settings text is smaller and balanced (title 16, detail 13, section header 13).
+- Design, accent colour and font changes apply at once: the chat re-applies radii, font and theme without leaving the page.
+- Not compiled or run on a device.

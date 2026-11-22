@@ -10,6 +10,8 @@
 @property (assign, nonatomic) CGFloat topRadius;
 @property (assign, nonatomic) CGFloat bottomRadius;
 @property (assign, nonatomic) UIEdgeInsets cardInsets;   // gap between the cards of two rows
+- (void)setPressed:(BOOL)pressed animated:(BOOL)animated;   // Material 3 Expressive: the shape morphs to fully round and the card dips, with a spring
+- (void)rippleFrom:(CGPoint)point;                          // ripple spreading from a touch point, clipped to the card
 @end
 
 #pragma mark - Switch (52 x 32, thumb grows when on)
@@ -49,9 +51,15 @@
 + (void)decorateTable:(UITableView *)table;                        // no separators, taller rows
 + (void)layoutTable:(UITableView *)table inBounds:(CGRect)bounds;  // side margins so the rows look like cards
 + (void)decorateCell:(UITableViewCell *)cell atIndexPath:(NSIndexPath *)indexPath inTable:(UITableView *)table;
++ (CGFloat)classic:(CGFloat)classic material:(CGFloat)material;   // a size that is different in the two designs
++ (void)installTableEffects:(UITableView *)table;                // ripple under the finger on every row (Material only)
++ (void)markTableForEntrance:(UITableView *)table;               // the rows that show up in the next moment spring in one after another
++ (void)springAnimations:(void (^)(void))animations;             // the spatial spring of Material 3 Expressive
 + (CGFloat)headerHeight;
 + (UIView *)headerViewWithTitle:(NSString *)title collapsed:(BOOL)collapsed collapsible:(BOOL)collapsible tap:(void (^)(void))tap;
 + (void)styleTitleForController:(UIViewController *)controller;    // left-aligned bold title
 + (UIImage *)chevronImageRight;
 + (UIImage *)circleIconWithGlyph:(void (^)(CGContextRef ctx))glyph;   // 40 pt tonal circle; the glyph is drawn in a 30 x 30 box in the accent colour
 @end
+
+#define MR(c, m) [Material classic:(c) material:(m)]

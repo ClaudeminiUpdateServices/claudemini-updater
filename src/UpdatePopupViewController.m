@@ -2,6 +2,7 @@
 #import "UpdateManager.h"
 #import "Strings.h"
 #import "Theme.h"
+#import "Material.h"
 
 // Down-pointing arrow over a tray, drawn with code (template image, tinted by the caller).
 static UIImage *DrawUpdateIcon(CGFloat size) {
@@ -69,7 +70,7 @@ static NSString *SizeText(long long bytes) {
 
     self.card = [[UIView alloc] init];
     self.card.backgroundColor = [Theme background];
-    self.card.layer.cornerRadius = 24;
+    self.card.layer.cornerRadius = MR(24, 28);
     self.card.layer.borderWidth = 1;
     self.card.layer.borderColor = [Theme border].CGColor;
     self.card.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -115,7 +116,7 @@ static NSString *SizeText(long long bytes) {
     self.secondaryButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
     self.secondaryButton.titleLabel.adjustsFontSizeToFitWidth = YES;
     self.secondaryButton.titleLabel.minimumScaleFactor = 0.8;
-    self.secondaryButton.layer.cornerRadius = 14;
+    self.secondaryButton.layer.cornerRadius = MR(14, 24);
     self.secondaryButton.layer.borderWidth = 1.5;
     self.secondaryButton.layer.borderColor = [Theme accent].CGColor;
     [self.secondaryButton addTarget:self action:@selector(secondaryTapped) forControlEvents:UIControlEventTouchUpInside];
@@ -127,7 +128,7 @@ static NSString *SizeText(long long bytes) {
     self.primaryButton.titleLabel.adjustsFontSizeToFitWidth = YES;
     self.primaryButton.titleLabel.minimumScaleFactor = 0.8;
     self.primaryButton.backgroundColor = [Theme accent];
-    self.primaryButton.layer.cornerRadius = 14;
+    self.primaryButton.layer.cornerRadius = MR(14, 24);
     [self.primaryButton addTarget:self action:@selector(primaryTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.card addSubview:self.primaryButton];
 
