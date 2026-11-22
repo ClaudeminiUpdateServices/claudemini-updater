@@ -24,6 +24,12 @@
 @property (assign, nonatomic) long long outputTokenUsage;
 
 @property (assign, nonatomic) NSInteger sameKeyRetryCount;
+// Watchdog: a live stream that goes quiet is cut and retried instead of leaving the chat waiting for minutes.
+@property (strong, nonatomic) NSTimer *watchdog;
+@property (assign, nonatomic) CFTimeInterval lastActivity;
+@property (assign, nonatomic) BOOL gotResponse;
+@property (assign, nonatomic) BOOL stallFired;
+@property (assign, nonatomic) NSInteger stallRetryCount;
 @property (strong, nonatomic) NSMutableURLRequest *savedRequest;
 @end
 
@@ -71,14 +77,15 @@
 // Seconds of silence tolerated before the connection counts as dead. Reasoning models can stay quiet for a long time, and a
 // single (non-live) request sends nothing until the whole answer is ready.
 + (NSTimeInterval)idleTimeoutFast:(BOOL)fast streaming:(BOOL)streaming {
-    if (!streaming) return fast ? 300 : 600;
-    return fast ? 150 : 240;
+    if (!streaming) return fast ? 180 : 360;
+    return fast ? 100 : 160;
 }
 
 #pragma mark - Control
 
 - (void)start {
     self.sameKeyRetryCount = 0;
+    self.stallRetryCount = 0;
     NSString *escapedModel = [self.model stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLPathAllowedCharacterSet]];
     NSString *method = self.useStreaming ? @"streamGenerateContent?alt=sse" : @"generateContent";
     NSString *urlString = [NSString stringWithFormat:
@@ -183,13 +190,65 @@
     config.timeoutIntervalForRequest = timeout;
     config.timeoutIntervalForResource = 3600;
     self.session = [NSURLSession sessionWithConfiguration:config delegate:self delegateQueue:[NSOperationQueue mainQueue]];
+    self.stallFired = NO;
     self.task = [self.session dataTaskWithRequest:request];
     [self.task resume];
+    [self startWatchdog];
 }
+
+#pragma mark - Watchdog
+
+- (NSTimeInterval)firstByteDeadline {
+    NSString *m = self.model.lowercaseString ?: @"";
+    if (self.useFastSpeed) return 45;
+    if ([m containsString:@"pro"]) return 120;
+    return 60;
+}
+
+- (NSTimeInterval)midStreamDeadline {
+    NSString *m = self.model.lowercaseString ?: @"";
+    if ([m containsString:@"pro"]) return 150;
+    return 90;
+}
+
+- (void)startWatchdog {
+    [self.watchdog invalidate];
+    self.watchdog = nil;
+    self.gotResponse = NO;
+    self.lastActivity = CACurrentMediaTime();
+    if (!self.useStreaming) return;   // a single request is silent until the whole answer is ready
+    __weak typeof(self) weakSelf = self;
+    NSTimer *timer = [NSTimer timerWithTimeInterval:1.0 repeats:YES block:^(NSTimer *t) {
+        GeminiStream *me = weakSelf;
+        if (!me || me.finished || me.cancelled) { [t invalidate]; return; }
+        [me checkWatchdog];
+    }];
+    [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
+    self.watchdog = timer;
+}
+
+- (void)stopWatchdog {
+    [self.watchdog invalidate];
+    self.watchdog = nil;
+}
+
+- (void)checkWatchdog {
+    if (!self.task || self.stallFired) return;   // between retries, or already being cut
+    NSTimeInterval limit = self.gotResponse ? [self midStreamDeadline] : [self firstByteDeadline];
+    if (CACurrentMediaTime() - self.lastActivity < limit) return;
+    self.stallFired = YES;
+    [self.task cancel];   // didCompleteWithError follows and decides: silent retry, or finish with what arrived
+}
+
+- (void)dealloc {
+    [self.watchdog invalidate];
+}
+
 
 - (void)cancel {
     if (self.finished) return;
     self.cancelled = YES;
+    [self stopWatchdog];
     [self.task cancel];
     [self.session invalidateAndCancel];
     self.session = nil;
@@ -202,6 +261,8 @@
           dataTask:(NSURLSessionDataTask *)dataTask
 didReceiveResponse:(NSURLResponse *)response
  completionHandler:(void (^)(NSURLSessionResponseDisposition))completionHandler {
+    self.gotResponse = YES;
+    self.lastActivity = CACurrentMediaTime();
     self.status = [response isKindOfClass:[NSHTTPURLResponse class]] ? [(NSHTTPURLResponse *)response statusCode] : 0;
     self.retryAfterSeconds = 0;
     if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
@@ -226,6 +287,7 @@ didReceiveResponse:(NSURLResponse *)response
 }
 
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveData:(NSData *)data {
+    self.lastActivity = CACurrentMediaTime();
     if (self.status != 200) {
         [self.errorBody appendData:data];
         return;
@@ -236,6 +298,28 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     if (self.finished) return;
+    if (self.session && session != self.session) return;   // late callback of a session that was already replaced
+    [self stopWatchdog];
+    BOOL stallGaveUp = NO;
+    if (self.stallFired && !self.cancelled) {
+        self.stallFired = NO;
+        if (!self.gotText && self.stallRetryCount < 2) {
+            // Nothing useful arrived: start over on a fresh connection right away, without bothering the user.
+            self.stallRetryCount++;
+            [self.session invalidateAndCancel];
+            self.session = nil;
+            self.task = nil;
+            __weak typeof(self) weakSelf = self;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                GeminiStream *me = weakSelf;
+                if (me && !me.finished && !me.cancelled) [me executeForcedRequest:me.savedRequest];
+            });
+            return;
+        }
+        stallGaveUp = YES;
+        error = [NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorTimedOut
+                                userInfo:@{ NSLocalizedDescriptionKey: @"The connection stopped responding" }];
+    }
 
     if (self.useStreaming) {
         [self drainBufferFinal:YES];
@@ -305,7 +389,7 @@ didReceiveResponse:(NSURLResponse *)response
     // Chỉ retry tự động khi chưa nhận được chữ (`!self.gotText`) để tránh lặp lại đoạn đã stream
     NSInteger maxRetries = self.useFastSpeed ? 8 : 12;
     double maxBackoff = self.useFastSpeed ? 6.0 : 12.0;
-    if (!self.gotText && (isRateLimitOrOverload || (error != nil && self.status == 0 && error.code != NSURLErrorCancelled))) {
+    if (!stallGaveUp && !self.gotText && (isRateLimitOrOverload || (error != nil && self.status == 0 && error.code != NSURLErrorCancelled))) {
         if (self.sameKeyRetryCount < maxRetries) {
             self.sameKeyRetryCount++;
             NSTimeInterval backoffDelay = MIN(pow(1.6, self.sameKeyRetryCount), maxBackoff);

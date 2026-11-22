@@ -31,3 +31,7 @@ Cap nhat phan mem (beta): gop 2 muc cap nhat (thuong + developer) thanh mot muc 
 Khoa cap nhat developer (beta): sai 10 lan khoa 1 gio (moi lan sai tiep theo lai khoa 1 gio); trong luc khoa, nhap 1 trong 50 ma skip (chi luu dang hash co muoi, moi ma dung 1 lan) vao o mat khau de bo khoa; loi nhan khi bi khoa doi thanh cau moi; nen cua man cap nhat va hop mat khau developer lam mo (blur) giong nen lich su tro chuyen.
 
 Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan thi khoa phan cap nhat developer 1 gio (trong luc khoa khong gi mo duoc, ke ca mat khau dung), hien loi nhan "Ai biểu spam cho cố vô, skip thì liên hệ zalo pucpucpuc để lấy key skip". Nen blur ap dung cho moi hop thoai (xac nhan, thong bao, nhap lieu, bang chon, chon model, cap nhat).
+
+[Chat hang fix]
+- GeminiStream/ClaudeStream: watchdog timer (live streams only). No first byte within 45-150 s (Gemini, by model) or 30-45 s (Claude), or silence mid-stream for 60-150 s: the task is cut and, if no text arrived, restarted silently on a fresh connection (max 2 times); otherwise finishes with a Network error so the existing continuation logic keeps the partial reply. Late callbacks of replaced sessions are ignored.
+- Idle timeouts shortened (live 100/160 s, single request 180/360 s).
