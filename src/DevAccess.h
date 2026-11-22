@@ -11,16 +11,12 @@
 //   5. Developer builds in the repository are AES-256-CBC + HMAC-SHA256 encrypted (encrypt-then-MAC) with a key
 //      derived from the password and a fresh salt per file. Without the password the file is useless, even to
 //      someone who patches the app or downloads the release by hand.
-//   6. Wrong passwords are throttled (3 free tries, then 30 s doubling up to 1 h). The counter lives in the Keychain.
+//   6. There is no lock-out: a wrong password is simply refused (each attempt still takes at least 1.5 s).
 //   7. The unlocked session exists only in memory, the password bytes are wiped on lock, when the app goes to the
 //      background, when the device locks, when the update screen is left and after 15 minutes.
-//   8. The attempt record is kept in three independent places (Keychain, a file, user defaults), each sealed with an
-//      HMAC made with a per-install key. The worst of the three counts, a missing copy is restored from the others and
-//      a copy that was edited by hand is punished (15 minutes locked) instead of trusted.
-//   9. Clock tricks do not shorten a lock: the last time seen is remembered (the clock cannot go back) and, within one
-//      boot, a monotonic clock is used as well.
-//  10. Escalating throttle: 3 free tries, then 30 s doubling (capped at 15 min); from the 15th wrong password on the update
-//      section is shut for 1 hour each time. While it is shut nothing opens it: there is one password, no other way in.
+//   8. (Removed with the lock-out: attempt records left by older builds are only wiped now.)
+//   9. (Removed with the lock-out.)
+//  10. (Removed: no wrong-try counter, no timed lock. Old counters left by earlier builds are wiped on every attempt.)
 //  11. A debugger attached to the process, or Frida / Cycript style instrumentation in the process, blocks the unlock
 //      and the decryption.
 //  12. Every attempt takes at least 1.5 s, so scripted guessing through the interface gains nothing.

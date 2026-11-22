@@ -167,17 +167,16 @@ static AttemptRecord OpenRecord(NSData *blob, NSData *key, BOOL *tampered) {
     return r;
 }
 
-// 3 free tries, then 30 s doubling (capped at 15 min); from the 15th wrong password on, the update section is shut for 1 hour
-// each time. While it is shut nothing is accepted, not even the right password.
-static const NSInteger kHourLockFailures = 15;
-static NSTimeInterval PenaltyForFailures(NSInteger fails) {
+// (No longer used: the gate has no lock-out. Kept only so old attempt records can be wiped.)
+__attribute__((unused)) static const NSInteger kHourLockFailures = 15;
+__attribute__((unused)) static NSTimeInterval PenaltyForFailures(NSInteger fails) {
     if (fails < 3) return 0;
     if (fails >= kHourLockFailures) return 3600.0;
     return MIN(30.0 * pow(2.0, (double)(fails - 3)), 900.0);
 }
 
 // Reads the three copies, keeps the worst of them and restores the ones that are missing.
-static AttemptRecord LoadAttempts(void) {
+__attribute__((unused)) static AttemptRecord LoadAttempts(void) {
     NSData *key = InstallKey();
     NSString *path = RecordFilePath();
     NSData *copies[3] = { KeychainRead(kKeychainAccount),
@@ -256,7 +255,7 @@ static void SaveAttempts(NSInteger fails, NSTimeInterval wait) {
 
 // Seconds the gate is still shut (0 = open). The longest of the wall-clock and the monotonic view counts, and the
 // wall clock can never be behind the latest time that was seen.
-static NSTimeInterval RemainingLock(AttemptRecord r) {
+__attribute__((unused)) static NSTimeInterval RemainingLock(AttemptRecord r) {
     NSTimeInterval now = MAX([[NSDate date] timeIntervalSince1970], r.seen);
     NSTimeInterval remaining = r.until > now ? r.until - now : 0;
     if (r.mono > 0 && r.boot > 0 && fabs(r.boot - BootTime()) < 3.0) {
@@ -386,23 +385,10 @@ static BOOL HostileEnvironment(void) {
     self.busy = YES;
     dispatch_async(self.queue, ^{
         CFAbsoluteTime started = CFAbsoluteTimeGetCurrent();
-        AttemptRecord record = LoadAttempts();
-        NSInteger fails = record.fails;
-        NSTimeInterval locked = RemainingLock(record);
-        if (locked > 0) {
-            memset_s(bytes.mutableBytes, bytes.length, 0, bytes.length);
-            dispatch_async(dispatch_get_main_queue(), ^{ self.busy = NO; finish(fails >= kHourLockFailures ? DevAccessResultLockedHour : DevAccessResultLockedOut, locked); });
-            return;
-        }
+        // No lock-out: wrong passwords are never counted. Whatever an older build left behind (wrong-try counters, a
+        // one-hour lock in the Keychain / file / defaults) is wiped here, so it can never refuse the right password.
         BOOL ok = [self verifyPasswordBytes:bytes.bytes length:bytes.length];
-        NSTimeInterval wait = 0;
-        if (ok) {
-            SaveAttempts(0, 0);
-        } else {
-            fails += 1;
-            wait = PenaltyForFailures(fails);
-            SaveAttempts(fails, wait);
-        }
+        SaveAttempts(0, 0);
         // Every attempt takes at least 1.5 s, right or wrong, so guessing through the interface is slow.
         NSTimeInterval spent = CFAbsoluteTimeGetCurrent() - started;
         if (spent < 1.5) usleep((useconds_t)((1.5 - spent) * 1e6));
@@ -417,7 +403,7 @@ static BOOL HostileEnvironment(void) {
                 finish(DevAccessResultOK, 0);
             } else {
                 memset_s(bytes.mutableBytes, bytes.length, 0, bytes.length);
-                finish(wait <= 0 ? DevAccessResultWrong : (fails >= kHourLockFailures ? DevAccessResultLockedHour : DevAccessResultLockedOut), wait);
+                finish(DevAccessResultWrong, 0);
             }
         });
     });

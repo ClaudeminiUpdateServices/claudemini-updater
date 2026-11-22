@@ -42,3 +42,6 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [Beta update row]
 - Settings > Data has a "Bản cập nhật beta" row again: password prompt, then the usual update pop-up (no separate page). The Software Update page keeps only the automatic-check option and always uses the normal releases.
 - Only one password opens the developer channel (new PBKDF2 verifiers; the password itself is not in the repo). The repository secret DEV_UPDATE_PASSWORD must hold the same password so developer builds are encrypted with it.
+
+[No lock-out]
+- Developer gate: wrong passwords are no longer counted and nothing locks the update section. Old wrong-try counters / one-hour locks stored by earlier builds are wiped on every attempt, so the right password is never refused.
