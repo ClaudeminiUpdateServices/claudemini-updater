@@ -51,7 +51,10 @@ static NSString *const kCellId = @"model";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.42];
+    self.view.backgroundColor = [UIColor clearColor];   // the blur below replaces the plain dimming
+    UIVisualEffectView *backdrop = [Theme backdropBlurView];
+    backdrop.frame = self.view.bounds;
+    [self.view addSubview:backdrop];
     self.models = [ModelStore recommendedModels];
 
     self.card = [[UIView alloc] init];

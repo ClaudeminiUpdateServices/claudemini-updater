@@ -513,6 +513,13 @@ static NSString *WallpaperFileKey(NSInteger index) {
     [[NSUserDefaults standardUserDefaults] setInteger:skin forKey:kSkinKey];
 }
 
++ (UIVisualEffectView *)backdropBlurView {
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[self darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight]];
+    blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    blur.userInteractionEnabled = NO;
+    return blur;
+}
+
 + (BOOL)darkMode { return EffectiveDark(); }
 
 + (BOOL)autoMode { LoadPrefs(); return gAuto; }

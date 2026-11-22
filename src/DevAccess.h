@@ -19,9 +19,8 @@
 //      a copy that was edited by hand is punished (15 minutes locked) instead of trusted.
 //   9. Clock tricks do not shorten a lock: the last time seen is remembered (the clock cannot go back) and, within one
 //      boot, a monotonic clock is used as well.
-//  10. Escalating throttle: 3 free tries, then 30 s doubling (up to about 32 min); from the 10th wrong password on the gate
-//      is shut for 1 hour each time. While it is shut, one of 50 single-use release codes (stored only as salted hashes)
-//      typed into the password field ends the wait.
+//  10. Escalating throttle: 3 free tries, then 30 s doubling (capped at 15 min); from the 15th wrong password on the update
+//      section is shut for 1 hour each time. While it is shut nothing opens it: there is one password, no other way in.
 //  11. A debugger attached to the process, or Frida / Cycript style instrumentation in the process, blocks the unlock
 //      and the decryption.
 //  12. Every attempt takes at least 1.5 s, so scripted guessing through the interface gains nothing.
@@ -32,10 +31,10 @@
 typedef NS_ENUM(NSInteger, DevAccessResult) {
     DevAccessResultOK = 0,
     DevAccessResultWrong,
-    DevAccessResultLockedOut,   // wait = seconds left
+    DevAccessResultLockedOut,   // short wait after wrong tries; wait = seconds left
+    DevAccessResultLockedHour,  // 15 or more wrong tries: shut for an hour; wait = seconds left
     DevAccessResultBusy,
     DevAccessResultInvalid,     // empty or absurdly long input
-    DevAccessResultSkipped,     // a release code ended the wait: the password can be entered again
     DevAccessResultTampered,    // a debugger or instrumentation is attached: refused without trying the password
 };
 

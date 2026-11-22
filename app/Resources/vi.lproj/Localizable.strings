@@ -338,4 +338,4 @@
 "su_options_footer" = "Bản Developer chỉ mở sau khi nhập mật khẩu và tự khóa lại khi bạn rời màn hình này.";
 "dev_hours" = "%ld giờ";
 "dev_err_tamper" = "Phát hiện trình gỡ lỗi hoặc công cụ can thiệp đang chạy. Đã từ chối mở khóa.";
-"dev_skip_ok" = "Đã bỏ khóa. Giờ hãy nhập lại mật khẩu.";
+"dev_err_throttle" = "cút mẹ m đi";

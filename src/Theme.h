@@ -54,6 +54,7 @@ typedef NS_ENUM(NSInteger, ThemeSkin) {
 
 + (ThemeSkin)skin;
 + (void)setSkin:(ThemeSkin)skin;                     // does not post a notification: call +postChange
++ (UIVisualEffectView *)backdropBlurView;               // the blurred backdrop behind every pop-up (same blur as behind the chat history list)
 + (BOOL)darkMode;                                    // what is shown now (follows the clock when auto mode is on)
 + (void)setDarkMode:(BOOL)dark;                      // the manual choice
 + (BOOL)autoMode;                                    // YES = dark from 18:00 to 05:59 by the device clock

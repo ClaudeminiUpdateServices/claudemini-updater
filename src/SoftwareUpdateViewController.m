@@ -520,7 +520,6 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
 - (void)presentPasswordPrompt {
     if (self.presentedViewController) return;
     ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:L(@"dev_prompt_msg")];
-    alert.blurBackdrop = YES;
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
         field.placeholder = L(@"dev_prompt_placeholder");
         field.secureTextEntry = YES;
@@ -560,16 +559,10 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
             return;
         }
         NSString *message;
-        if (result == DevAccessResultSkipped) {
-            // A release code ended the wait: say so, then ask for the password again.
-            ChoicePopupViewController *done = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:L(@"dev_skip_ok")];
-            done.blurBackdrop = YES;
-            [done addAction:[ChoiceAction actionWithTitle:L(@"dev_prompt_ok") style:UIAlertActionStyleDefault handler:^(id a) { [weakSelf presentPasswordPrompt]; }]];
-            if (!me.presentedViewController) [done presentFromViewController:me];
-            return;
-        }
-        if (result == DevAccessResultLockedOut) {
-            message = L(@"dev_err_lockout");
+        if (result == DevAccessResultLockedHour) {
+            message = L(@"dev_err_lockout");          // "Ai biểu spam cho cố vô, ..."
+        } else if (result == DevAccessResultLockedOut) {
+            message = L(@"dev_err_throttle");         // short wait
         } else if (result == DevAccessResultBusy) {
             message = L(@"dev_err_busy");
         } else if (result == DevAccessResultTampered) {
@@ -578,7 +571,6 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
             message = L(@"dev_err_wrong");
         }
         ChoicePopupViewController *fail = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:message];
-        fail.blurBackdrop = YES;
         [fail addAction:[ChoiceAction actionWithTitle:L(@"update_close") style:UIAlertActionStyleCancel handler:nil]];
         if (!me.presentedViewController) [fail presentFromViewController:me];
     }];

@@ -31,7 +31,10 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.42];
+    self.view.backgroundColor = [UIColor clearColor];   // the blur below replaces the plain dimming
+    UIVisualEffectView *backdrop = [Theme backdropBlurView];
+    backdrop.frame = self.view.bounds;
+    [self.view addSubview:backdrop];
 
     self.card = [[UIView alloc] init];
     self.card.backgroundColor = [Theme background];

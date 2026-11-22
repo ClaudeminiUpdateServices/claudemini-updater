@@ -337,4 +337,4 @@
 "su_options_footer" = "The developer channel opens only after the password and locks again when you leave this screen.";
 "dev_hours" = "%ld h";
 "dev_err_tamper" = "A debugger or instrumentation tool was found. Unlock refused.";
-"dev_skip_ok" = "The lock is removed. Now enter the password again.";
+"dev_err_throttle" = "cút mẹ m đi";

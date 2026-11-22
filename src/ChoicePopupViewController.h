@@ -14,8 +14,6 @@
 + (instancetype)alertWithTitle:(NSString *)title message:(NSString *)message;
 - (void)addTextFieldWithConfigurationHandler:(void (^)(UITextField *field))configure;
 @property (strong, nonatomic, readonly) NSMutableArray<UITextField *> *textFields;
-// The background is blurred like the one behind the chat history list instead of just dimmed (the update screens use this).
-@property (assign, nonatomic) BOOL blurBackdrop;
 - (void)addAction:(ChoiceAction *)action;
 - (void)presentFromViewController:(UIViewController *)host;
 @end
