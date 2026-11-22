@@ -20,16 +20,16 @@ static const char kMagic[6] = { 'C', 'M', 'D', 'E', 'V', '1' };
 static const uint32_t kFileRounds = 250000;
 
 // Verifiers made from the password (see tools/make_dev_gate.py in the developer's own notes; the password is not in the repo).
-static NSString *const kSaltA = @"350db8ac2a8a8be0523c8a8ba3de5492";
-static NSString *const kHashA = @"18283db76002ce5ab617a16c683f1761dca635a8bd40c90ccdf4ed92ad0a6730";
+static NSString *const kSaltA = @"15e9ac0802fc1dc486d2556a4540720c";
+static NSString *const kHashA = @"e67a5cb3acd2b349e6f7ac02c36d0785490a6a2b8ee6219379c27a9834932ef9";
 static const uint32_t kRoundsA = 210000;
-static NSString *const kSaltB = @"4a5d99608ebc1817c1ede4f6fc72a808";
-static NSString *const kHashB = @"1f7f3211a81a051dc5c89c4ad50df1f37fe5b6d73df095b4565e83fa1e422acdf1c6fd181e8a178cc6090d683f19755fa1e5c8d3223f52aeb4e09d4177c0d48d";
+static NSString *const kSaltB = @"f208c99853a70867c460106fffd08bb6";
+static NSString *const kHashB = @"06a32589cd21f939c2e802c481da698f0e750d763eec48f8735d6e471fd1e0a681212e6545459e10e68c94d5acfe44931dff71064f2ee2ca41f143bd32f93bd0";
 static const uint32_t kRoundsB = 150000;
-static NSString *const kSaltC = @"e4e719973fdc6bdd18e874538facee32";
-static NSString *const kSealIV = @"df9a6450516ecd5f5f5d1151727fbc1f";
-static NSString *const kSealCT = @"8c23d3c9f3afe2e8920b23f7f55b96c1c63cb4d91234b7b36d511d4f07669d1fecca96fbfc46f0ff8bf7f2196208a03d";
-static NSString *const kSealTag = @"16a9e2441c49aeb970c24bc8edae65d9e13e3a63676d35be0fe6b30ee0e394ad";
+static NSString *const kSaltC = @"e564e71042c8776096e7c87c5b0b6eb1";
+static NSString *const kSealIV = @"52daea1dc2f5111cd3446afdd066c597";
+static NSString *const kSealCT = @"8e29f07f964a430c9c209d02f6fa4d24a63ab951e5597d4633ddb42081d906cf5b8062ce593821a91a8e6478a93708a9";
+static NSString *const kSealTag = @"e2fe7ceab71fe8c9267f03f1bb1f6493ce8c75acea7dd7126f0b48a3f6490171";
 static const uint32_t kRoundsC = 120000;
 static const char kSealPrefix[] = "CMDEV-GATE-OPEN-";
 

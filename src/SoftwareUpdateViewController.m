@@ -398,11 +398,11 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return SUSectionCount; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == SUSectionOptions ? 2 : 1;
+    return 1;   // the beta channel lives in its own Settings row (password, then the update pop-up)
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    if (section == SUSectionOptions) return L(@"su_options_footer");
+    if (section == SUSectionOptions) return nil;
     UpdateManager *m = [UpdateManager shared];
     return [NSString stringWithFormat:L(@"su_footer"), m.currentVersion ?: @"", m.installKindName ?: @""];
 }
@@ -430,13 +430,8 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
     UIView *selected = [[UIView alloc] init];
     selected.backgroundColor = [[Theme accent] colorWithAlphaComponent:0.12];
     cell.selectedBackgroundView = selected;
-    if (indexPath.row == 0) {
-        cell.textLabel.text = L(@"su_auto_title");
-        cell.detailTextLabel.text = L([AppSettings autoUpdateCheckEnabled] ? @"su_on" : @"su_off");
-    } else {
-        cell.textLabel.text = L(@"su_beta_title");
-        cell.detailTextLabel.text = L([UpdateManager shared].devChannel ? @"su_beta_dev" : @"su_off");
-    }
+    cell.textLabel.text = L(@"su_auto_title");
+    cell.detailTextLabel.text = L([AppSettings autoUpdateCheckEnabled] ? @"su_on" : @"su_off");
     return cell;
 }
 
@@ -451,7 +446,7 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (indexPath.section != SUSectionOptions) return;
-    if (indexPath.row == 0) [self chooseAutomatic]; else [self chooseBetaChannel];
+    [self chooseAutomatic];
 }
 
 - (void)viewDidLayoutSubviews {

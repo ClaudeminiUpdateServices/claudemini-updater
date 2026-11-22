@@ -648,6 +648,73 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     [self presentViewController:[[UpdatePopupViewController alloc] init] animated:YES completion:nil];
 }
 
+#pragma mark - Beta update (password protected, shown in the update pop-up)
+
+- (void)betaUpdateTapped {
+    if (self.presentedViewController) return;
+    if ([DevAccess shared].unlocked) { [self openBetaPopup]; return; }
+    [self presentDevPasswordPrompt];
+}
+
+- (void)openBetaPopup {
+    [[UpdateManager shared] switchToDevChannel:YES];
+    if (![UpdateManager shared].devChannel) { [self presentDevPasswordPrompt]; return; }
+    [self presentUpdatePopupChecking:YES];
+}
+
+- (void)presentDevPasswordPrompt {
+    if (self.presentedViewController) return;
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:L(@"dev_prompt_msg")];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.placeholder = L(@"dev_prompt_placeholder");
+        field.secureTextEntry = YES;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        field.autocorrectionType = UITextAutocorrectionTypeNo;
+        field.spellCheckingType = UITextSpellCheckingTypeNo;
+        field.keyboardType = UIKeyboardTypeASCIICapable;
+        field.returnKeyType = UIReturnKeyDone;
+    }];
+    __weak typeof(self) weakSelf = self;
+    __weak ChoicePopupViewController *weakAlert = alert;
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"dev_prompt_ok") style:UIAlertActionStyleDefault handler:^(id action) {
+        UITextField *field = weakAlert.textFields.firstObject;
+        NSString *typed = [field.text copy];
+        field.text = @"";   // do not keep the password in the field
+        [weakSelf submitDevPassword:typed];
+    }]];
+    [alert presentFromViewController:self];
+}
+
+- (void)submitDevPassword:(NSString *)password {
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    spinner.color = [Theme secondaryText];
+    spinner.center = CGPointMake(self.view.bounds.size.width / 2.0, self.view.bounds.size.height / 2.0);
+    [self.view addSubview:spinner];
+    [spinner startAnimating];
+    self.view.userInteractionEnabled = NO;
+    __weak typeof(self) weakSelf = self;
+    [[DevAccess shared] unlockWithPassword:password completion:^(DevAccessResult result, NSTimeInterval wait) {
+        [spinner removeFromSuperview];
+        SettingsViewController *me = weakSelf;
+        if (!me) return;
+        me.view.userInteractionEnabled = YES;
+        if (result == DevAccessResultOK) {
+            [me openBetaPopup];
+            return;
+        }
+        NSString *message;
+        if (result == DevAccessResultLockedHour) message = L(@"dev_err_lockout");
+        else if (result == DevAccessResultLockedOut) message = L(@"dev_err_throttle");
+        else if (result == DevAccessResultBusy) message = L(@"dev_err_busy");
+        else if (result == DevAccessResultTampered) message = L(@"dev_err_tamper");
+        else message = L(@"dev_err_wrong");
+        ChoicePopupViewController *fail = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:message];
+        [fail addAction:[ChoiceAction actionWithTitle:L(@"update_close") style:UIAlertActionStyleCancel handler:nil]];
+        if (!me.presentedViewController) [fail presentFromViewController:me];
+    }];
+}
+
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
@@ -716,7 +783,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     if (section == SettingsSectionKeys) return 3;      // Gemini key, Claude key, kind of Gemini key
     if (section == SettingsSectionAssistant) return 4;
     if (section == SettingsSectionCredits) return 3;   // TaoJB, PucSaur, ND Phonqq
-    return 4;   // data: clear history, version, software update (normal + developer channel), diagnostics
+    return 5;   // data: clear history, version, software update, beta update (password), diagnostics
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -819,6 +886,10 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
                 }
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
                 }
+            } else if (indexPath.row == 3) {
+                cell.textLabel.text = L(@"su_beta_title");
+                cell.detailTextLabel.text = nil;
+                cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
             } else {
                 cell.textLabel.text = L(@"diagnostics_title");
                 cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -835,8 +906,8 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
             break;
         }
         case SettingsSectionData: {
-            static const SettingsIconKind dataIcons[4] = { SITrash, SIInfo, SIUpdate, SIDiagnostics };
-            iconKind = indexPath.row >= 0 && indexPath.row < 4 ? dataIcons[indexPath.row] : -1;
+            static const SettingsIconKind dataIcons[5] = { SITrash, SIInfo, SIUpdate, SIDeveloper, SIDiagnostics };
+            iconKind = indexPath.row >= 0 && indexPath.row < 5 ? dataIcons[indexPath.row] : -1;
             break;
         }
         default: break;
@@ -900,6 +971,8 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
             } else if (indexPath.row == 2) {
                 [self.navigationController pushViewController:[[SoftwareUpdateViewController alloc] init] animated:YES];
             } else if (indexPath.row == 3) {
+                [self betaUpdateTapped];
+            } else if (indexPath.row == 4) {
                 [self.navigationController pushViewController:[[DiagnosticsViewController alloc] init] animated:YES];
             }
             break;

@@ -38,3 +38,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 
 [Release]
 - Official 0.7.4 (beta 0.7.4-1 promoted).
+
+[Beta update row]
+- Settings > Data has a "Bản cập nhật beta" row again: password prompt, then the usual update pop-up (no separate page). The Software Update page keeps only the automatic-check option and always uses the normal releases.
+- Only one password opens the developer channel (new PBKDF2 verifiers; the password itself is not in the repo). The repository secret DEV_UPDATE_PASSWORD must hold the same password so developer builds are encrypted with it.
