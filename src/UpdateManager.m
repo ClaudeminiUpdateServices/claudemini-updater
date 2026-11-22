@@ -3,6 +3,7 @@
 #import "Theme.h"
 #import "DiagnosticLog.h"
 #import "DevAccess.h"
+#import "AppSettings.h"
 
 NSString *const kNotifUpdateChanged = @"ClaudeMiniUpdateChanged";
 
@@ -206,6 +207,16 @@ static NSString *SafeFileName(NSString *name) {
 
 #pragma mark Channel
 
+// The developer session must still be unlocked at every step (check, download, install), not only when the channel was
+// entered. If it ran out (time, background, device lock), the channel is left, the decrypted file is removed and the
+// person has to enter the password again. Returns YES when it did that.
+- (BOOL)dropLockedDevChannel {
+    if (!self.devChannel || [DevAccess shared].unlocked) return NO;
+    [self switchToDevChannel:NO];
+    [self failWithMessage:L(@"dev_err_locked")];
+    return YES;
+}
+
 - (void)switchToDevChannel:(BOOL)dev {
     if (![NSThread isMainThread]) { dispatch_async(dispatch_get_main_queue(), ^{ [self switchToDevChannel:dev]; }); return; }
     if (dev == self.devChannel) return;
@@ -250,6 +261,7 @@ static NSString *SafeFileName(NSString *name) {
     if (![NSThread isMainThread]) { dispatch_async(dispatch_get_main_queue(), ^{ [self checkForUpdateForce:force]; }); return; }
     if (self.state == UpdateStateChecking || self.state == UpdateStateDownloading) return;
     if (!force && self.devChannel) return;   // background checks only ever look at the normal releases
+    if (!force && ![AppSettings autoUpdateCheckEnabled]) return;   // "Tự động cập nhật" is off
     if (self.repo.length == 0) {
         [self failWithMessage:L(@"update_no_repo")];
         return;
@@ -436,6 +448,7 @@ static NSString *SafeFileName(NSString *name) {
 - (void)startDownload {
     if (![NSThread isMainThread]) { dispatch_async(dispatch_get_main_queue(), ^{ [self startDownload]; }); return; }
     if (self.state == UpdateStateDownloading) return;
+    if ([self dropLockedDevChannel]) return;
     NSURL *url = [NSURL URLWithString:self.assetURL ?: @""];
     if (!url || ![url.scheme isEqualToString:@"https"]) { [self failWithMessage:L(@"update_err_nofile")]; return; }
     if (self.downloadedPath.length > 0 && [[NSFileManager defaultManager] fileExistsAtPath:self.downloadedPath]) {
@@ -563,6 +576,7 @@ static NSString *SafeFileName(NSString *name) {
 #pragma mark Install
 
 - (void)installFromViewController:(UIViewController *)from anchor:(UIView *)anchor {
+    if ([self dropLockedDevChannel]) return;
     if (self.downloadedPath.length == 0 || ![[NSFileManager defaultManager] fileExistsAtPath:self.downloadedPath]) {
         [self failWithMessage:L(@"update_err_nofile")];
         return;
@@ -593,6 +607,7 @@ static NSString *SafeFileName(NSString *name) {
 }
 
 - (void)presentOpenInFromViewController:(UIViewController *)from anchor:(UIView *)anchor {
+    if ([self dropLockedDevChannel]) return;
     if (self.downloadedPath.length == 0) return;
     UIView *host = anchor ?: from.view;
     if (!host.window) return;

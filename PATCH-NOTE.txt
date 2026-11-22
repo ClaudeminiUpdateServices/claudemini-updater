@@ -25,3 +25,5 @@ Hop thoai (beta): thay het UIAlertController (hop thoai xac nhan, thong bao, nha
 Chi dan AI (beta): nut "Nhap tu tep (.clmn hoac .txt)" trong man Chi dan cho AI; mo tep .clmn bang ClaudeMini (Tep, chia se, AirDrop) thi app tu doc va nhap vao chi dan (hoi thay the hoac them vao cuoi neu da co chi dan).
 
 iPhone Duo (beta): bo cuc hai khung (danh sach chat co dinh ben trai, chat ben phai), cho phep xoay ngang, tranh tai tho khi xoay; Cai dat > Giao dien > iPhone Duo: chon Tu dong / Dien thoai / iPhone Duo va do rong khung trai; nut menu tren cung gap/mo khung trai; man key van chi xoay doc.
+
+Cap nhat phan mem (beta): gop 2 muc cap nhat (thuong + developer) thanh mot muc "Cap nhat phan mem" kieu iOS (hai hang: Tu dong cap nhat, Ban cap nhat beta; the co icon, phien ban, dung luong, ghi chu, nut "Cap nhat bay gio"). Kenh developer van sau mat khau; them lop bao mat: ban ghi so lan sai nhan ba ban co chu ky HMAC, chong chinh dong ho (dong ho don dieu), khoa 6 gio/24 gio khi sai nhieu, chan debugger/Frida, moi lan thu mat toi thieu 1,5 giay, khoa lai khi khoa man hinh/roi man cap nhat, kiem tra lai phien o moi buoc kiem tra, tai, cai.

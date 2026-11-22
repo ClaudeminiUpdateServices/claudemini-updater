@@ -230,7 +230,7 @@
 
 /* update */
 "settings_header_update" = "Update";
-"update_row_title" = "App update";
+"update_row_title" = "Software Update";
 "update_row_check" = "Tap to check";
 "update_row_checking" = "Checking…";
 "update_row_latest" = "You're up to date";
@@ -322,3 +322,18 @@
 "duo_sidebar_narrow" = "Narrow";
 "duo_sidebar_medium" = "Medium";
 "duo_sidebar_wide" = "Wide";
+"su_auto_title" = "Automatic Updates";
+"su_auto_msg" = "Look for a new version every time the app opens.";
+"su_on" = "On";
+"su_off" = "Off";
+"su_beta_title" = "Beta Updates";
+"su_beta_msg" = "Developer builds are test versions and need a password.";
+"su_beta_off_option" = "Off (use the release version)";
+"su_beta_dev_option" = "Developer (password needed)";
+"su_beta_dev" = "Developer";
+"su_update_now" = "Update Now";
+"su_no_notes" = "There are no notes for this version.";
+"su_footer" = "Current version %@ · installed as %@.";
+"su_options_footer" = "The developer channel opens only after the password and locks again when you leave this screen.";
+"dev_hours" = "%ld h";
+"dev_err_tamper" = "A debugger or instrumentation tool was found. Unlock refused.";

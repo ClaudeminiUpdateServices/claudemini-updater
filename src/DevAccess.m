@@ -3,6 +3,14 @@
 #import <CommonCrypto/CommonKeyDerivation.h>
 #import <Security/Security.h>
 #import <UIKit/UIKit.h>
+#import <mach-o/dyld.h>
+#import <sys/sysctl.h>
+#import <time.h>
+#import <unistd.h>
+
+#ifndef P_TRACED
+#define P_TRACED 0x00000800   // the process is being debugged (sys/proc.h is not in the iOS SDK)
+#endif
 
 // File format of an encrypted developer build:
 //   "CMDEV1" (6) | salt (16) | iv (16) | AES-256-CBC ciphertext (PKCS7) | HMAC-SHA256 (32)
@@ -55,35 +63,39 @@ static BOOL Pbkdf2(const uint8_t *pw, size_t pwLen, const uint8_t *salt, size_t 
     return CCKeyDerivationPBKDF(kCCPBKDF2, (const char *)pw, pwLen, salt, saltLen, prf, rounds, out, outLen) == kCCSuccess;
 }
 
-#pragma mark - Keychain (attempt counter)
+#pragma mark - Attempt record (three sealed copies)
 
-static NSDictionary *KeychainQuery(void) {
+typedef struct {
+    NSInteger fails;          // wrong passwords since the last success
+    NSTimeInterval until;     // wall-clock time until which the gate is shut
+    NSTimeInterval seen;      // latest wall-clock time ever observed here (the clock cannot be turned back)
+    NSTimeInterval boot;      // boot time of the device when `mono` was written
+    NSTimeInterval mono;      // monotonic-clock time (seconds) until which the gate is shut
+    BOOL valid;
+} AttemptRecord;
+
+static NSString *const kInstallKeyAccount = @"installkey";
+static NSString *const kDefaultsKey = @"cm.gate.v2";
+
+static NSDictionary *KeychainQueryFor(NSString *account) {
     return @{ (__bridge id)kSecClass: (__bridge id)kSecClassGenericPassword,
               (__bridge id)kSecAttrService: kKeychainService,
-              (__bridge id)kSecAttrAccount: kKeychainAccount };
+              (__bridge id)kSecAttrAccount: account };
 }
 
-static void LoadAttempts(NSInteger *fails, NSTimeInterval *until) {
-    *fails = 0; *until = 0;
-    NSMutableDictionary *q = [KeychainQuery() mutableCopy];
+static NSData *KeychainRead(NSString *account) {
+    NSMutableDictionary *q = [KeychainQueryFor(account) mutableCopy];
     q[(__bridge id)kSecReturnData] = @YES;
     q[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
     CFTypeRef result = NULL;
-    if (SecItemCopyMatching((__bridge CFDictionaryRef)q, &result) != errSecSuccess || !result) return;
-    NSData *data = (__bridge_transfer NSData *)result;
-    id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    if ([json isKindOfClass:[NSDictionary class]]) {
-        *fails = MAX(0, [json[@"f"] integerValue]);
-        *until = [json[@"u"] doubleValue];
-    }
+    if (SecItemCopyMatching((__bridge CFDictionaryRef)q, &result) != errSecSuccess || !result) return nil;
+    return (__bridge_transfer NSData *)result;
 }
 
-static void SaveAttempts(NSInteger fails, NSTimeInterval until) {
-    NSData *data = [NSJSONSerialization dataWithJSONObject:@{ @"f": @(fails), @"u": @(until) } options:0 error:nil];
+static void KeychainWrite(NSString *account, NSData *data) {
     if (!data) return;
-    NSDictionary *query = KeychainQuery();
-    NSDictionary *update = @{ (__bridge id)kSecValueData: data };
-    OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
+    NSDictionary *query = KeychainQueryFor(account);
+    OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)@{ (__bridge id)kSecValueData: data });
     if (status == errSecItemNotFound) {
         NSMutableDictionary *add = [query mutableCopy];
         add[(__bridge id)kSecValueData] = data;
@@ -92,10 +104,185 @@ static void SaveAttempts(NSInteger fails, NSTimeInterval until) {
     }
 }
 
-static NSTimeInterval DelayForFailures(NSInteger fails) {
+// A random per-install key that seals the attempt records. It lives in the Keychain, this device only.
+static NSData *InstallKey(void) {
+    NSData *key = KeychainRead(kInstallKeyAccount);
+    if (key.length == 32) return key;
+    uint8_t bytes[32];
+    if (SecRandomCopyBytes(kSecRandomDefault, sizeof(bytes), bytes) != errSecSuccess) return nil;
+    key = [NSData dataWithBytes:bytes length:sizeof(bytes)];
+    memset_s(bytes, sizeof(bytes), 0, sizeof(bytes));
+    KeychainWrite(kInstallKeyAccount, key);
+    return key;
+}
+
+static NSString *RecordFilePath(void) {
+    NSString *dir = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+    if (dir.length == 0) return nil;
+    [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+    return [dir stringByAppendingPathComponent:@".cmgate"];
+}
+
+static NSTimeInterval MonotonicSeconds(void) {
+    return (NSTimeInterval)clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) / 1e9;
+}
+
+static NSTimeInterval BootTime(void) {
+    struct timeval boot;
+    size_t size = sizeof(boot);
+    int mib[2] = { CTL_KERN, KERN_BOOTTIME };
+    if (sysctl(mib, 2, &boot, &size, NULL, 0) != 0) return 0;
+    return (NSTimeInterval)boot.tv_sec;
+}
+
+static NSData *SealRecord(AttemptRecord r, NSData *key) {
+    NSDictionary *dict = @{ @"f": @(r.fails), @"u": @(r.until), @"t": @(r.seen), @"b": @(r.boot), @"m": @(r.mono), @"v": @2 };
+    NSData *json = [NSJSONSerialization dataWithJSONObject:dict options:NSJSONWritingSortedKeys error:nil];
+    if (!json || key.length != 32) return nil;
+    uint8_t mac[CC_SHA256_DIGEST_LENGTH];
+    CCHmac(kCCHmacAlgSHA256, key.bytes, key.length, json.bytes, json.length, mac);
+    NSMutableData *out = [json mutableCopy];
+    [out appendBytes:mac length:sizeof(mac)];
+    return out;
+}
+
+// valid = the seal is correct. `tampered` is set when data was there but the seal does not match.
+static AttemptRecord OpenRecord(NSData *blob, NSData *key, BOOL *tampered) {
+    AttemptRecord r = {0, 0, 0, 0, 0, NO};
+    if (blob.length == 0) return r;
+    if (blob.length <= CC_SHA256_DIGEST_LENGTH || key.length != 32) { if (tampered) *tampered = YES; return r; }
+    NSData *json = [blob subdataWithRange:NSMakeRange(0, blob.length - CC_SHA256_DIGEST_LENGTH)];
+    const uint8_t *tag = (const uint8_t *)blob.bytes + blob.length - CC_SHA256_DIGEST_LENGTH;
+    uint8_t mac[CC_SHA256_DIGEST_LENGTH];
+    CCHmac(kCCHmacAlgSHA256, key.bytes, key.length, json.bytes, json.length, mac);
+    if (!ConstantTimeEqual(mac, tag, sizeof(mac))) { if (tampered) *tampered = YES; return r; }
+    id obj = [NSJSONSerialization JSONObjectWithData:json options:0 error:nil];
+    if (![obj isKindOfClass:[NSDictionary class]]) { if (tampered) *tampered = YES; return r; }
+    r.fails = MAX(0, [obj[@"f"] integerValue]);
+    r.until = [obj[@"u"] doubleValue];
+    r.seen = [obj[@"t"] doubleValue];
+    r.boot = [obj[@"b"] doubleValue];
+    r.mono = [obj[@"m"] doubleValue];
+    r.valid = YES;
+    return r;
+}
+
+static NSTimeInterval PenaltyForFailures(NSInteger fails) {
     if (fails < 3) return 0;
     double delay = 30.0 * pow(2.0, (double)MIN(fails - 3, 7));
-    return MIN(delay, 3600.0);
+    delay = MIN(delay, 3600.0);
+    if (fails >= 20) delay = 86400.0;
+    else if (fails >= 12) delay = 21600.0;
+    return delay;
+}
+
+// Reads the three copies, keeps the worst of them and restores the ones that are missing.
+static AttemptRecord LoadAttempts(void) {
+    NSData *key = InstallKey();
+    NSString *path = RecordFilePath();
+    NSData *copies[3] = { KeychainRead(kKeychainAccount),
+                          path ? [NSData dataWithContentsOfFile:path] : nil,
+                          [[NSUserDefaults standardUserDefaults] dataForKey:kDefaultsKey] };
+    AttemptRecord worst = {0, 0, 0, 0, 0, NO};
+    BOOL tampered = NO, anyMissing = NO, anyData = NO;
+    NSTimeInterval bootNow = BootTime();
+    for (int i = 0; i < 3; i++) {
+        if (copies[i].length == 0) { anyMissing = YES; continue; }
+        anyData = YES;
+        BOOL bad = NO;
+        AttemptRecord r = OpenRecord(copies[i], key, &bad);
+        if (bad) {
+            // The Keychain copy of an older build is plain JSON: accept it once and seal it again below.
+            if (i == 0) {
+                id legacy = [NSJSONSerialization JSONObjectWithData:copies[i] options:0 error:nil];
+                if ([legacy isKindOfClass:[NSDictionary class]]) {
+                    r.fails = MAX(0, [legacy[@"f"] integerValue]);
+                    r.until = [legacy[@"u"] doubleValue];
+                    r.valid = YES;
+                    bad = NO;
+                }
+            }
+            if (bad) tampered = YES;
+        }
+        if (!r.valid) continue;
+        worst.valid = YES;
+        worst.fails = MAX(worst.fails, r.fails);
+        worst.until = MAX(worst.until, r.until);
+        worst.seen = MAX(worst.seen, r.seen);
+        if (r.mono > 0 && r.boot > 0 && fabs(r.boot - bootNow) < 3.0) {
+            worst.mono = MAX(worst.mono, r.mono);
+            worst.boot = r.boot;
+        }
+    }
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    if (tampered) {
+        // A record that was edited by hand is not believed: a heavy fixed penalty instead.
+        worst.valid = YES;
+        worst.fails = MAX(worst.fails, 5);
+        worst.until = MAX(worst.until, MAX(now, worst.seen) + 900);
+    }
+    (void)anyData;
+    if (tampered || (worst.valid && anyMissing)) {
+        // Self-heal: write the combined record back to every place.
+        worst.seen = MAX(worst.seen, now);
+        NSData *blob = SealRecord(worst, key);
+        if (blob) {
+            KeychainWrite(kKeychainAccount, blob);
+            if (path) [blob writeToFile:path options:NSDataWritingAtomic error:nil];
+            [[NSUserDefaults standardUserDefaults] setObject:blob forKey:kDefaultsKey];
+        }
+    }
+    return worst;
+}
+
+static void SaveAttempts(NSInteger fails, NSTimeInterval wait) {
+    NSData *key = InstallKey();
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    AttemptRecord r = {0, 0, 0, 0, 0, YES};
+    r.fails = fails;
+    r.seen = now;
+    if (wait > 0) {
+        r.until = now + wait;
+        r.boot = BootTime();
+        r.mono = MonotonicSeconds() + wait;
+    }
+    NSData *blob = SealRecord(r, key);
+    if (!blob) return;
+    KeychainWrite(kKeychainAccount, blob);
+    NSString *path = RecordFilePath();
+    if (path) [blob writeToFile:path options:NSDataWritingAtomic error:nil];
+    [[NSUserDefaults standardUserDefaults] setObject:blob forKey:kDefaultsKey];
+}
+
+// Seconds the gate is still shut (0 = open). The longest of the wall-clock and the monotonic view counts, and the
+// wall clock can never be behind the latest time that was seen.
+static NSTimeInterval RemainingLock(AttemptRecord r) {
+    NSTimeInterval now = MAX([[NSDate date] timeIntervalSince1970], r.seen);
+    NSTimeInterval remaining = r.until > now ? r.until - now : 0;
+    if (r.mono > 0 && r.boot > 0 && fabs(r.boot - BootTime()) < 3.0) {
+        NSTimeInterval m = r.mono - MonotonicSeconds();
+        if (m > remaining) remaining = m;
+    }
+    return remaining;
+}
+
+#pragma mark - Hostile environment
+
+// A debugger on the process, or instrumentation frameworks loaded into it. A jailbreak itself is not a reason to refuse.
+static BOOL HostileEnvironment(void) {
+    struct kinfo_proc info;
+    memset(&info, 0, sizeof(info));
+    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid() };
+    size_t size = sizeof(info);
+    if (sysctl(mib, 4, &info, &size, NULL, 0) == 0 && (info.kp_proc.p_flag & P_TRACED) != 0) return YES;
+    uint32_t count = _dyld_image_count();
+    for (uint32_t i = 0; i < count; i++) {
+        const char *name = _dyld_get_image_name(i);
+        if (!name) continue;
+        NSString *lower = [[NSString stringWithUTF8String:name] lowercaseString];
+        if ([lower containsString:@"frida"] || [lower containsString:@"cycript"] || [lower containsString:@"gadget"]) return YES;
+    }
+    return NO;
 }
 
 #pragma mark - DevAccess
@@ -122,6 +309,7 @@ static NSTimeInterval DelayForFailures(NSInteger fails) {
     if (self) {
         _queue = dispatch_queue_create("com.claudemini.devaccess", DISPATCH_QUEUE_SERIAL);
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appLeft) name:UIApplicationDidEnterBackgroundNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appLeft) name:UIApplicationProtectedDataWillBecomeUnavailable object:nil];   // device locked
     }
     return self;
 }
@@ -190,14 +378,20 @@ static NSTimeInterval DelayForFailures(NSInteger fails) {
         finish(DevAccessResultInvalid, 0);
         return;
     }
+    if (HostileEnvironment()) {
+        memset_s(bytes.mutableBytes, bytes.length, 0, bytes.length);
+        finish(DevAccessResultTampered, 0);
+        return;
+    }
     self.busy = YES;
     dispatch_async(self.queue, ^{
-        NSInteger fails = 0; NSTimeInterval until = 0;
-        LoadAttempts(&fails, &until);
-        NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
-        if (until > now) {
+        CFAbsoluteTime started = CFAbsoluteTimeGetCurrent();
+        AttemptRecord record = LoadAttempts();
+        NSInteger fails = record.fails;
+        NSTimeInterval locked = RemainingLock(record);
+        if (locked > 0) {
             memset_s(bytes.mutableBytes, bytes.length, 0, bytes.length);
-            dispatch_async(dispatch_get_main_queue(), ^{ self.busy = NO; finish(DevAccessResultLockedOut, until - now); });
+            dispatch_async(dispatch_get_main_queue(), ^{ self.busy = NO; finish(DevAccessResultLockedOut, locked); });
             return;
         }
         BOOL ok = [self verifyPasswordBytes:bytes.bytes length:bytes.length];
@@ -206,9 +400,12 @@ static NSTimeInterval DelayForFailures(NSInteger fails) {
             SaveAttempts(0, 0);
         } else {
             fails += 1;
-            wait = DelayForFailures(fails);
-            SaveAttempts(fails, wait > 0 ? [[NSDate date] timeIntervalSince1970] + wait : 0);
+            wait = PenaltyForFailures(fails);
+            SaveAttempts(fails, wait);
         }
+        // Every attempt takes at least 1.5 s, right or wrong, so guessing through the interface is slow.
+        NSTimeInterval spent = CFAbsoluteTimeGetCurrent() - started;
+        if (spent < 1.5) usleep((useconds_t)((1.5 - spent) * 1e6));
         dispatch_async(dispatch_get_main_queue(), ^{
             self.busy = NO;
             if (ok) {
@@ -230,6 +427,7 @@ static NSTimeInterval DelayForFailures(NSInteger fails) {
     NSData *password;
     @synchronized (self) { password = [self.sessionPassword copy]; }
     if (password.length == 0) { if (reason) *reason = @"locked"; return NO; }
+    if (HostileEnvironment()) { if (reason) *reason = @"instrumentation detected"; return NO; }
 
     NSError *error = nil;
     NSData *file = [NSData dataWithContentsOfFile:source options:NSDataReadingMappedIfSafe error:&error];
@@ -266,7 +464,7 @@ static NSTimeInterval DelayForFailures(NSInteger fails) {
     memset_s(keys, sizeof(keys), 0, sizeof(keys));
     if (st != kCCSuccess) { if (reason) *reason = @"decrypt failed"; return NO; }
     plain.length = plainLen;
-    BOOL wrote = [plain writeToFile:destination options:NSDataWritingAtomic error:&error];
+    BOOL wrote = [plain writeToFile:destination options:NSDataWritingAtomic | NSDataWritingFileProtectionComplete error:&error];
     if (plain.length > 0) memset_s(plain.mutableBytes, plain.length, 0, plain.length);
     if (!wrote) { if (reason) *reason = @"could not save"; return NO; }
     return YES;

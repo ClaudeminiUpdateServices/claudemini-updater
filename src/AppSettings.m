@@ -15,6 +15,7 @@ static NSString *const kDailyBudgetKey = @"dailyTokenBudget";
 static NSString *const kUiScaleKey = @"uiScale";
 static NSString *const kFontStyleKey = @"fontStyle";
 static NSString *const kVoiceAutoPlayKey = @"voiceAutoPlay";
+static NSString *const kAutoUpdateKey = @"autoUpdateCheck";
 static NSString *const kLayoutModeKey = @"layoutMode";
 static NSString *const kDuoSidebarSizeKey = @"duoSidebarSize";
 static NSString *const kDuoSidebarCollapsedKey = @"duoSidebarCollapsed";
@@ -288,6 +289,12 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
     [[NSUserDefaults standardUserDefaults] setDouble:(double)scale forKey:kUiScaleKey];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil userInfo:@{@"uiScale": @(scale)}];
 }
+
++ (BOOL)autoUpdateCheckEnabled {
+    id v = [[NSUserDefaults standardUserDefaults] objectForKey:kAutoUpdateKey];
+    return v ? [v boolValue] : YES;
+}
++ (void)setAutoUpdateCheckEnabled:(BOOL)enabled { [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:kAutoUpdateKey]; }
 
 + (NSInteger)layoutMode {
     NSInteger mode = [[NSUserDefaults standardUserDefaults] integerForKey:kLayoutModeKey];

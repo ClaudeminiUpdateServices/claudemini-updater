@@ -231,7 +231,7 @@
 
 /* update */
 "settings_header_update" = "Cập nhật";
-"update_row_title" = "Cập nhật ứng dụng";
+"update_row_title" = "Cập nhật phần mềm";
 "update_row_check" = "Chạm để kiểm tra";
 "update_row_checking" = "Đang kiểm tra…";
 "update_row_latest" = "Đã là bản mới nhất";
@@ -323,3 +323,18 @@
 "duo_sidebar_narrow" = "Hẹp";
 "duo_sidebar_medium" = "Vừa";
 "duo_sidebar_wide" = "Rộng";
+"su_auto_title" = "Tự động cập nhật";
+"su_auto_msg" = "Tự động tìm bản mới mỗi khi mở app.";
+"su_on" = "Bật";
+"su_off" = "Tắt";
+"su_beta_title" = "Bản cập nhật beta";
+"su_beta_msg" = "Developer là các bản dựng thử, cần mật khẩu.";
+"su_beta_off_option" = "Tắt (dùng bản chính thức)";
+"su_beta_dev_option" = "Developer (cần mật khẩu)";
+"su_beta_dev" = "Developer";
+"su_update_now" = "Cập nhật bây giờ";
+"su_no_notes" = "Chưa có ghi chú cho bản này.";
+"su_footer" = "Phiên bản hiện tại %@ · cài bằng %@.";
+"su_options_footer" = "Bản Developer chỉ mở sau khi nhập mật khẩu và tự khóa lại khi bạn rời màn hình này.";
+"dev_hours" = "%ld giờ";
+"dev_err_tamper" = "Phát hiện trình gỡ lỗi hoặc công cụ can thiệp đang chạy. Đã từ chối mở khóa.";

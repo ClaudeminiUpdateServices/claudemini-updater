@@ -48,6 +48,9 @@ typedef NS_ENUM(NSInteger, AIReasoningLevel) {
 + (BOOL)duoActiveForSize:(CGSize)size;   // two panes for a view of this size?
 + (UIInterfaceOrientationMask)allowedOrientations;
 
++ (BOOL)autoUpdateCheckEnabled;       // look for a new version at launch / in Settings without being asked (default on)
++ (void)setAutoUpdateCheckEnabled:(BOOL)enabled;
+
 + (NSInteger)fontStyle;               // 0 = Claude (serif titles and answers), 1 = system font
 + (void)setFontStyle:(NSInteger)style;
 + (void)setUiScale:(CGFloat)scale;

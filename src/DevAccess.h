@@ -13,7 +13,19 @@
 //      someone who patches the app or downloads the release by hand.
 //   6. Wrong passwords are throttled (3 free tries, then 30 s doubling up to 1 h). The counter lives in the Keychain.
 //   7. The unlocked session exists only in memory, the password bytes are wiped on lock, when the app goes to the
-//      background and after 15 minutes.
+//      background, when the device locks, when the update screen is left and after 15 minutes.
+//   8. The attempt record is kept in three independent places (Keychain, a file, user defaults), each sealed with an
+//      HMAC made with a per-install key. The worst of the three counts, a missing copy is restored from the others and
+//      a copy that was edited by hand is punished (15 minutes locked) instead of trusted.
+//   9. Clock tricks do not shorten a lock: the last time seen is remembered (the clock cannot go back) and, within one
+//      boot, a monotonic clock is used as well.
+//  10. Escalating throttle for good: 3 free tries, 30 s doubling up to 1 h, 6 h after 12 failures, 24 h after 20.
+//  11. A debugger attached to the process, or Frida / Cycript style instrumentation in the process, blocks the unlock
+//      and the decryption.
+//  12. Every attempt takes at least 1.5 s, so scripted guessing through the interface gains nothing.
+//  13. The decrypted build is written with complete file protection and removed as soon as the channel is left.
+//  14. Before a developer build is checked, downloaded or opened, the session must still be unlocked (checked again at
+//      each step, not only at the door).
 
 typedef NS_ENUM(NSInteger, DevAccessResult) {
     DevAccessResultOK = 0,
@@ -21,6 +33,7 @@ typedef NS_ENUM(NSInteger, DevAccessResult) {
     DevAccessResultLockedOut,   // wait = seconds left
     DevAccessResultBusy,
     DevAccessResultInvalid,     // empty or absurdly long input
+    DevAccessResultTampered,    // a debugger or instrumentation is attached: refused without trying the password
 };
 
 @interface DevAccess : NSObject
