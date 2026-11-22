@@ -66,3 +66,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Accent page mascot: turns all the time and morphs from one shape to the next (circle, cookie, clover, burst, soft square, flower, soft triangle, sunny) with a spring; dragging the hue slider morphs it live; it also changes by itself every few seconds.
 - Material slider: thumb swells under the finger and springs back, larger touch area.
 - Not compiled or run on a device.
+
+[0.8.0 beta 3]
+- Settings sections (Giao dien, API Keys, ...) now fold and unfold with an animation: rows fade out / drop in and the chevron springs round.
+- Removed the coloured (accent) flash when touching a row: the selected background is now the plain row colour, the ripple is neutral grey.
+- Not compiled or run on a device.

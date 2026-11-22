@@ -98,7 +98,7 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
     CGPoint corners[4] = { rect.origin, CGPointMake(CGRectGetMaxX(rect), rect.origin.y), CGPointMake(rect.origin.x, CGRectGetMaxY(rect)), CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect)) };
     for (int i = 0; i < 4; i++) maxDistance = MAX(maxDistance, hypot(corners[i].x - point.x, corners[i].y - point.y));
     CAShapeLayer *circle = [CAShapeLayer layer];
-    circle.fillColor = [[Theme accent] colorWithAlphaComponent:0.20].CGColor;
+    circle.fillColor = [([Theme darkMode] ? [UIColor whiteColor] : [UIColor blackColor]) colorWithAlphaComponent:0.07].CGColor;   // neutral, no coloured flash
     UIBezierPath *start = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(point.x - 1, point.y - 1, 2, 2)];
     UIBezierPath *end = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(point.x - maxDistance, point.y - maxDistance, maxDistance * 2, maxDistance * 2)];
     circle.path = end.CGPath;
@@ -728,7 +728,7 @@ static void MascotFill(CGFloat *out, NSInteger index) {
     cell.backgroundView = card;
 
     MaterialCardView *selected = [[MaterialCardView alloc] init];
-    selected.fillColor = Mix([Theme surface], [Theme accent], 0.16);
+    selected.fillColor = [Theme surface];   // no coloured highlight while touching; the press is shown by the shape and the ripple
     selected.topRadius = card.topRadius;
     selected.bottomRadius = card.bottomRadius;
     cell.selectedBackgroundView = selected;
@@ -811,6 +811,32 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
     header.chevron.tintColor = [Theme secondaryText];
     header.tap = collapsible ? tap : nil;
     return header;
+}
+
++ (void)toggleSection:(NSInteger)section collapsed:(NSMutableSet<NSNumber *> *)collapsed inTable:(UITableView *)table header:(UIView *)header {
+    NSNumber *key = @(section);
+    BOOL willCollapse = ![collapsed containsObject:key];
+    NSInteger count = 0;
+    NSMutableArray<NSIndexPath *> *paths = [NSMutableArray array];
+    if (willCollapse) {
+        count = [table numberOfRowsInSection:section];   // rows that are visible now
+        [collapsed addObject:key];
+    } else {
+        [collapsed removeObject:key];
+        count = [table numberOfRowsInSection:section];   // rows that come back
+    }
+    for (NSInteger i = 0; i < count; i++) [paths addObject:[NSIndexPath indexPathForRow:i inSection:section]];
+
+    if ([header isKindOfClass:[MaterialSectionHeader class]]) {
+        UIImageView *chevron = ((MaterialSectionHeader *)header).chevron;
+        CGAffineTransform target = CGAffineTransformMakeRotation(willCollapse ? 0 : M_PI_2);
+        [UIView animateWithDuration:0.5 delay:0 usingSpringWithDamping:0.62 initialSpringVelocity:0.6 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{ chevron.transform = target; } completion:nil];
+    }
+    if (count == 0 || UIAccessibilityIsReduceMotionEnabled()) { [table reloadData]; return; }
+    [table beginUpdates];
+    if (willCollapse) [table deleteRowsAtIndexPaths:paths withRowAnimation:UITableViewRowAnimationFade];
+    else [table insertRowsAtIndexPaths:paths withRowAnimation:UITableViewRowAnimationTop];
+    [table endUpdates];
 }
 
 + (void)styleTitleForController:(UIViewController *)controller {

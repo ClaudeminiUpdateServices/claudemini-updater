@@ -2,6 +2,7 @@
 #import "Strings.h"
 #import "ChoicePopupViewController.h"
 #import "Theme.h"
+#import "Material.h"
 #import "ConversationStore.h"
 #import "SettingsViewController.h"
 #import "MiniNavigationController.h"
@@ -176,7 +177,7 @@
         cell.detailTextLabel.font = [UIFont systemFontOfSize:13];
         cell.detailTextLabel.textColor = [Theme secondaryText];
         UIView *selected = [[UIView alloc] init];
-        selected.backgroundColor = [Theme selection];
+        selected.backgroundColor = [Material active] ? [UIColor clearColor] : [Theme selection];
         cell.selectedBackgroundView = selected;
     }
     NSDictionary *entry = self.entries[indexPath.row];

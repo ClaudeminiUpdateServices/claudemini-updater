@@ -371,7 +371,7 @@ static NSCache *ImageCache(void) {
     cell.detailTextLabel.textColor = [Theme secondaryText];
     cell.tintColor = [Theme accent];
     UIView *selected = [[UIView alloc] init];
-    selected.backgroundColor = [Theme selection];
+    selected.backgroundColor = [Material active] ? [Theme surface] : [Theme selection];
     cell.selectedBackgroundView = selected;
 
     switch ([self sectionAtIndex:indexPath.section]) {

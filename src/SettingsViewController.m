@@ -1065,13 +1065,14 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     NSString *title = [self tableView:tableView titleForHeaderInSection:section];
     BOOL collapsed = [self.collapsedSections containsObject:@(section)];
     __weak typeof(self) weakSelf = self;
-    return [Material headerViewWithTitle:title collapsed:collapsed collapsible:YES tap:^{
+    __block __weak UIView *headerRef = nil;
+    UIView *header = [Material headerViewWithTitle:title collapsed:collapsed collapsible:YES tap:^{
         SettingsViewController *me = weakSelf;
         if (!me) return;
-        if ([me.collapsedSections containsObject:@(section)]) [me.collapsedSections removeObject:@(section)];
-        else [me.collapsedSections addObject:@(section)];
-        [me.tableView reloadData];
+        [Material toggleSection:section collapsed:me.collapsedSections inTable:me.tableView header:headerRef];
     }];
+    headerRef = header;
+    return header;
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {

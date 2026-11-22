@@ -59,6 +59,8 @@
 + (void)springAnimations:(void (^)(void))animations;             // the spatial spring of Material 3 Expressive
 + (CGFloat)headerHeight;
 + (UIView *)headerViewWithTitle:(NSString *)title collapsed:(BOOL)collapsed collapsible:(BOOL)collapsible tap:(void (^)(void))tap;
+// Folds or unfolds a section with an animation (rows fade out / drop in, the chevron springs round).
++ (void)toggleSection:(NSInteger)section collapsed:(NSMutableSet<NSNumber *> *)collapsed inTable:(UITableView *)table header:(UIView *)header;
 + (void)styleTitleForController:(UIViewController *)controller;    // left-aligned bold title
 + (UIImage *)chevronImageRight;
 + (UIImage *)circleIconWithGlyph:(void (^)(CGContextRef ctx))glyph;   // 40 pt tonal circle; the glyph is drawn in a 30 x 30 box in the accent colour
