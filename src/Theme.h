@@ -29,6 +29,7 @@ typedef NS_ENUM(NSInteger, ThemeSkin) {
 + (UIColor *)error;
 + (UIColor *)selection;       // highlighted table row
 
++ (UIColor *)onAccent;        // text colour that reads well on the accent (white, or near-black on a light accent)
 + (UIFont *)serifFontOfSize:(CGFloat)size;           // Georgia, falls back to system font
 + (UIImage *)imageWithColor:(UIColor *)color;        // 1x1 stretchable image for button states
 
@@ -79,6 +80,24 @@ typedef NS_ENUM(NSInteger, ThemeSkin) {
 + (CGFloat)wallpaperDimAlpha;                        // black overlay on the wallpaper (dark mode only)
 
 + (UIKeyboardAppearance)keyboardAppearance;
+
+#pragma mark - Custom accent colour (hue / saturation / brightness picked by the user)
+
+// While active it replaces the accent of the skin and tints the whole palette (backgrounds, cards, borders).
++ (BOOL)customAccentActive;
++ (void)getCustomHue:(CGFloat *)hue saturation:(CGFloat *)saturation brightness:(CGFloat *)brightness;   // the picked values, or the skin accent's when none is picked
++ (void)setCustomHue:(CGFloat)hue saturation:(CGFloat)saturation brightness:(CGFloat)brightness;         // does not post a notification
++ (void)resetCustomAccent;                                                                              // back to the accent of the skin
++ (UIColor *)colorWithHue:(CGFloat)hue saturation:(CGFloat)saturation brightness:(CGFloat)brightness;
++ (NSString *)hexStringForHue:(CGFloat)hue saturation:(CGFloat)saturation brightness:(CGFloat)brightness;   // "#A34CBE"
+
+#pragma mark - Material 3 design and the moving gradient wallpaper
+
++ (BOOL)materialDesign;                                // Material 3 look (cards, tonal surfaces, M3 switches and sliders)
++ (void)setMaterialDesign:(BOOL)on;                    // does not post a notification
++ (NSInteger)gradientWallpaperChoice;                  // the wallpaper choice that means "moving gradient" (= ThemeSkinCount)
++ (BOOL)gradientWallpaperActive;                       // the chat shows the moving gradient made from the accent colour
++ (NSArray<UIColor *> *)gradientWallpaperColors;       // four colours, tinted by the accent, for the current light / dark mode
 
 #pragma mark - App icon
 

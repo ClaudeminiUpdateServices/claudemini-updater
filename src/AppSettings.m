@@ -14,6 +14,7 @@ static NSString *const kDailyDateKey = @"dailyTokenUsageDate";
 static NSString *const kDailyBudgetKey = @"dailyTokenBudget";
 static NSString *const kUiScaleKey = @"uiScale";
 static NSString *const kFontStyleKey = @"fontStyle";
+static NSString *const kFontWeightKey = @"fontWeightStep";
 static NSString *const kVoiceAutoPlayKey = @"voiceAutoPlay";
 static NSString *const kAutoUpdateKey = @"autoUpdateCheck";
 static NSString *const kLayoutModeKey = @"layoutMode";
@@ -339,12 +340,22 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
 }
 
 + (NSInteger)fontStyle {
-    return [[NSUserDefaults standardUserDefaults] integerForKey:kFontStyleKey] == 1 ? 1 : 0;
+    NSInteger style = [[NSUserDefaults standardUserDefaults] integerForKey:kFontStyleKey];
+    return (style == 1 || style == 2) ? style : 0;
 }
 + (void)setFontStyle:(NSInteger)style {
-    NSInteger norm = (style == 1 ? 1 : 0);
+    NSInteger norm = (style == 1 || style == 2) ? style : 0;
     [[NSUserDefaults standardUserDefaults] setInteger:norm forKey:kFontStyleKey];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil userInfo:@{@"fontStyle": @(norm)}];
+}
++ (NSInteger)fontWeightStep {
+    NSInteger step = [[NSUserDefaults standardUserDefaults] integerForKey:kFontWeightKey];
+    return MAX(-3, MIN(3, step));
+}
++ (void)setFontWeightStep:(NSInteger)step {
+    NSInteger norm = MAX(-3, MIN(3, step));
+    [[NSUserDefaults standardUserDefaults] setInteger:norm forKey:kFontWeightKey];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil userInfo:@{@"fontWeight": @(norm)}];
 }
 
 + (BOOL)voiceAutoPlayEnabled { id v = [[NSUserDefaults standardUserDefaults] objectForKey:kVoiceAutoPlayKey]; return v ? [v boolValue] : YES; }

@@ -4,6 +4,8 @@
 #import "ChoicePopupViewController.h"
 #import "Theme.h"
 #import "DiagnosticLog.h"
+#import "Material.h"
+#import "AccentColorViewController.h"
 
 typedef NS_ENUM(NSInteger, AppearanceSection) {
     AppearanceSectionMode = 0,    // light / dark pictures + "Tự động"      (root page)
@@ -17,7 +19,7 @@ typedef NS_ENUM(NSInteger, AppearanceSection) {
 };
 
 // Wallpaper rows: 0 = follow the skin, 1 = none, 2...7 = wallpaper 1...6.
-static const NSInteger kWallpaperRowCount = 2 + (ThemeSkinCount - 1);
+static const NSInteger kWallpaperRowCount = 2 + (ThemeSkinCount - 1) + 1;   // + the moving gradient (choice = ThemeSkinCount)
 
 #pragma mark - Light / dark picker cell (like iOS Settings > Display)
 
@@ -137,7 +139,7 @@ static const CGSize kModePreviewSize = { 84, 148 };
 - (NSArray<NSNumber *> *)sections {
     switch (self.page) {
         case AppearancePageIcon:      return @[@(AppearanceSectionIconStyle), @(AppearanceSectionIcon)];
-        case AppearancePageChatTheme: return @[@(AppearanceSectionWallpaper)];
+        case AppearancePageChatTheme: return @[@(AppearanceSectionSkin), @(AppearanceSectionWallpaper)];
         case AppearancePageAccent:    return @[@(AppearanceSectionSkin)];
         case AppearancePageDuo:       return @[@(AppearanceSectionLayout), @(AppearanceSectionSidebar)];
         default:                      return @[@(AppearanceSectionMode), @(AppearanceSectionMenu)];
@@ -180,11 +182,25 @@ static const CGSize kModePreviewSize = { 84, 148 };
     self.view.backgroundColor = [Theme background];
     self.tableView.backgroundColor = [Theme background];
     self.tableView.separatorColor = [Theme border];
+    [self applyMaterialStyle];
     [self.tableView reloadData];
+}
+
+- (void)applyMaterialStyle {
+    BOOL material = [Material active];
+    self.tableView.separatorStyle = material ? UITableViewCellSeparatorStyleNone : UITableViewCellSeparatorStyleSingleLine;
+    [Material layoutTable:self.tableView inBounds:self.view.bounds];
+    [Material styleTitleForController:self];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    [Material layoutTable:self.tableView inBounds:self.view.bounds];
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self applyMaterialStyle];
     if (self.hasAppearedOnce) [self.tableView reloadData];   // the icon may have been changed from outside (e.g. the system reverted it)
     self.hasAppearedOnce = YES;
 }
@@ -250,6 +266,25 @@ static NSCache *ImageCache(void) {
     }];
 }
 
+- (UIImage *)gradientThumb {
+    NSArray<UIColor *> *colors = [Theme gradientWallpaperColors];
+    const CGSize size = CGSizeMake(34, 44);
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, size.width, size.height) cornerRadius:7] addClip];
+        NSMutableArray *cg = [NSMutableArray array];
+        for (UIColor *c in colors) [cg addObject:(id)c.CGColor];
+        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+        CGGradientRef gradient = CGGradientCreateWithColors(space, (__bridge CFArrayRef)cg, NULL);
+        CGColorSpaceRelease(space);
+        if (gradient) {
+            CGContextDrawLinearGradient(ctx.CGContext, gradient, CGPointMake(0, 0), CGPointMake(size.width, size.height), 0);
+            CGGradientRelease(gradient);
+        }
+    }];
+    return image;
+}
+
 - (UIImage *)swatchImageWithColor:(UIColor *)color {
     CGRect rect = CGRectMake(0, 0, 28, 28);
     UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:rect.size];
@@ -282,7 +317,7 @@ static NSCache *ImageCache(void) {
     switch ([self sectionAtIndex:section]) {
         case AppearanceSectionSkin:      return ThemeSkinCount;
         case AppearanceSectionMode:      return 2;   // picture row + "Tự động"
-        case AppearanceSectionMenu:      return 4;
+        case AppearanceSectionMenu:      return 5;   // icon, chat theme, accent, iPhone Duo, design
         case AppearanceSectionLayout:    return 3;
         case AppearanceSectionSidebar:   return 3;
         case AppearanceSectionWallpaper: return kWallpaperRowCount;
@@ -294,7 +329,7 @@ static NSCache *ImageCache(void) {
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
     switch ([self sectionAtIndex:section]) {
         case AppearanceSectionMode:      return L(@"appearance_mode_header");
-        case AppearanceSectionSkin:      return L(@"appearance_accent_header");
+        case AppearanceSectionSkin:      return L(@"appearance_skin_header");
         case AppearanceSectionWallpaper: return L(@"appearance_wallpaper_header");
         case AppearanceSectionIconStyle: return L(@"appearance_icon_style_header");
         case AppearanceSectionIcon:      return L(@"appearance_icon_header");
@@ -322,6 +357,7 @@ static NSCache *ImageCache(void) {
     NSInteger choice = [Theme wallpaperChoice];
     if (choice == -1) return L(@"wallpaper_follow");
     if (choice == 0) return L(@"wallpaper_none");
+    if (choice == [Theme gradientWallpaperChoice]) return L(@"wallpaper_gradient");
     return [Theme wallpaperName:choice];
 }
 
@@ -350,9 +386,15 @@ static NSCache *ImageCache(void) {
                 cell.textLabel.text = L(@"appearance_menu_chat");
                 cell.detailTextLabel.text = [self wallpaperSummary];
             } else if (indexPath.row == 2) {
-                cell.imageView.image = [self cachedSwatchForSkin:[Theme skin]];
+                cell.imageView.image = [Theme customAccentActive] ? [self swatchImageWithColor:[Theme accent]] : [self cachedSwatchForSkin:[Theme skin]];
                 cell.textLabel.text = L(@"appearance_menu_accent");
-                cell.detailTextLabel.text = [Theme skinName:[Theme skin]];
+                CGFloat ah = 0, as = 0, ab = 0;
+                [Theme getCustomHue:&ah saturation:&as brightness:&ab];
+                cell.detailTextLabel.text = [Theme customAccentActive] ? [Theme hexStringForHue:ah saturation:as brightness:ab] : L(@"accent_default");
+            } else if (indexPath.row == 4) {
+                cell.imageView.image = [self swatchImageWithColor:[Theme accent]];
+                cell.textLabel.text = L(@"appearance_menu_design");
+                cell.detailTextLabel.text = L([Theme materialDesign] ? @"design_material" : @"design_classic");
             } else {
                 cell.imageView.image = [self duoGlyphImage];
                 cell.textLabel.text = L(@"appearance_menu_duo");
@@ -389,7 +431,7 @@ static NSCache *ImageCache(void) {
             cell.imageView.image = [self cachedSwatchForSkin:skin];
             cell.textLabel.text = [Theme skinName:skin];
             cell.detailTextLabel.text = L([Theme skinColorKey:skin]);
-            cell.accessoryType = (skin == [Theme skin]) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+            cell.accessoryType = (skin == [Theme skin] && ![Theme customAccentActive]) ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
             break;
         }
         case AppearanceSectionMode: {
@@ -411,11 +453,18 @@ static NSCache *ImageCache(void) {
             }
             cell.textLabel.text = L(@"mode_auto");
             cell.selectionStyle = UITableViewCellSelectionStyleNone;
-            UISwitch *toggle = [[UISwitch alloc] init];
-            toggle.on = [Theme autoMode];
-            toggle.onTintColor = [Theme accent];
-            [toggle addTarget:self action:@selector(autoToggled:) forControlEvents:UIControlEventValueChanged];
-            cell.accessoryView = toggle;
+            if ([Material active]) {
+                MaterialSwitch *toggle = [[MaterialSwitch alloc] init];
+                toggle.on = [Theme autoMode];
+                [toggle addTarget:self action:@selector(autoToggled:) forControlEvents:UIControlEventValueChanged];
+                cell.accessoryView = toggle;
+            } else {
+                UISwitch *toggle = [[UISwitch alloc] init];
+                toggle.on = [Theme autoMode];
+                toggle.onTintColor = [Theme accent];
+                [toggle addTarget:self action:@selector(autoToggled:) forControlEvents:UIControlEventValueChanged];
+                cell.accessoryView = toggle;
+            }
             break;
         }
         case AppearanceSectionWallpaper: {
@@ -429,6 +478,11 @@ static NSCache *ImageCache(void) {
                 cell.textLabel.text = L(@"wallpaper_none");
                 cell.detailTextLabel.text = L(@"wallpaper_none_note");
                 isSelected = (choice == 0);
+            } else if (indexPath.row - 1 == [Theme gradientWallpaperChoice]) {
+                cell.textLabel.text = L(@"wallpaper_gradient");
+                cell.detailTextLabel.text = L(@"wallpaper_gradient_note");
+                cell.imageView.image = [self gradientThumb];
+                isSelected = (choice == [Theme gradientWallpaperChoice]);
             } else {
                 NSInteger index = indexPath.row - 1;   // rows 2...7 -> wallpapers 1...6
                 cell.textLabel.text = [Theme wallpaperName:index];
@@ -455,6 +509,26 @@ static NSCache *ImageCache(void) {
 
 #pragma mark - UITableViewDelegate
 
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+    [Material decorateCell:cell atIndexPath:indexPath inTable:tableView];
+}
+
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    NSString *title = [self tableView:tableView titleForHeaderInSection:section];
+    if (![Material active] || title.length == 0) return nil;
+    return [Material headerViewWithTitle:title collapsed:NO collapsible:NO tap:nil];
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    if (![Material active]) return UITableViewAutomaticDimension;
+    return [self tableView:tableView titleForHeaderInSection:section].length > 0 ? [Material headerHeight] : 10;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    if (![Material active]) return UITableViewAutomaticDimension;
+    return [self tableView:tableView titleForFooterInSection:section].length > 0 ? UITableViewAutomaticDimension : 6;
+}
+
 - (void)tableView:(UITableView *)tableView willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
     if ([view isKindOfClass:[UITableViewHeaderFooterView class]]) ((UITableViewHeaderFooterView *)view).textLabel.textColor = [Theme secondaryText];
 }
@@ -477,7 +551,15 @@ static NSCache *ImageCache(void) {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     switch ([self sectionAtIndex:indexPath.section]) {
         case AppearanceSectionMenu: {
-            AppearancePage next = indexPath.row == 0 ? AppearancePageIcon : (indexPath.row == 1 ? AppearancePageChatTheme : (indexPath.row == 2 ? AppearancePageAccent : AppearancePageDuo));
+            if (indexPath.row == 2) {
+                [self.navigationController pushViewController:[[AccentColorViewController alloc] init] animated:YES];
+                break;
+            }
+            if (indexPath.row == 4) {
+                [self chooseDesign];
+                break;
+            }
+            AppearancePage next = indexPath.row == 0 ? AppearancePageIcon : (indexPath.row == 1 ? AppearancePageChatTheme : AppearancePageDuo);
             [self.navigationController pushViewController:[[AppearanceViewController alloc] initWithPage:next] animated:YES];
             break;
         }
@@ -525,16 +607,35 @@ static NSCache *ImageCache(void) {
     [Theme postChange];
 }
 
-- (void)autoToggled:(UISwitch *)toggle {
-    if (!toggle.isOn) {
+- (void)autoToggled:(UIControl *)control {
+    BOOL isOn = [(id)control isOn];   // UISwitch or MaterialSwitch
+    if (!isOn) {
         [Theme setDarkMode:[Theme darkMode]];   // keep what is shown now as the manual choice
     }
-    [Theme setAutoMode:toggle.isOn];
+    [Theme setAutoMode:isOn];
+    [Theme postChange];
+}
+
+- (void)chooseDesign {
+    if (self.presentedViewController) return;
+    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"appearance_menu_design") message:L(@"design_message")];
+    __weak typeof(self) weakSelf = self;
+    BOOL material = [Theme materialDesign];
+    [alert addAction:[ChoiceAction actionWithTitle:[L(@"design_classic") stringByAppendingString:material ? @"" : @"  \u2713"] style:UIAlertActionStyleDefault handler:^(id a) { [weakSelf setDesign:NO]; }]];
+    [alert addAction:[ChoiceAction actionWithTitle:[L(@"design_material") stringByAppendingString:material ? @"  \u2713" : @""] style:UIAlertActionStyleDefault handler:^(id a) { [weakSelf setDesign:YES]; }]];
+    [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
+    [alert presentFromViewController:self];
+}
+
+- (void)setDesign:(BOOL)material {
+    if ([Theme materialDesign] == material) return;
+    [Theme setMaterialDesign:material];
     [Theme postChange];
 }
 
 - (void)chooseSkin:(ThemeSkin)skin {
-    if (skin == [Theme skin]) return;
+    if (skin == [Theme skin] && ![Theme customAccentActive]) return;
+    [Theme resetCustomAccent];   // a skin brings its own accent: the picked colour is dropped
     [Theme setSkin:skin];
     [Theme postChange];
 

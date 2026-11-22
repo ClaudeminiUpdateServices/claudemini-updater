@@ -339,3 +339,16 @@
 "dev_hours" = "%ld giờ";
 "dev_err_tamper" = "Phát hiện trình gỡ lỗi hoặc công cụ can thiệp đang chạy. Đã từ chối mở khóa.";
 "dev_err_throttle" = "cút mẹ m đi";
+"appearance_menu_design" = "Kiểu giao diện";
+"design_classic" = "Cổ điển";
+"design_material" = "Material 3";
+"design_message" = "Material 3 dùng thẻ bo tròn, màu tông theo màu nhấn, công tắc và thanh trượt kiểu Google.";
+"accent_default" = "Mặc định";
+"accent_hue" = "Sắc độ";
+"accent_saturation" = "Độ bão hòa";
+"accent_brightness" = "Độ sáng";
+"wallpaper_gradient" = "Gradient động";
+"wallpaper_gradient_note" = "Nền chuyển động theo màu nhấn";
+"font_rounded" = "SF Rounded";
+"font_weight_title" = "Độ đậm chữ";
+"font_weight_normal" = "Bình thường";

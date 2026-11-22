@@ -45,3 +45,11 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 
 [No lock-out]
 - Developer gate: wrong passwords are no longer counted and nothing locks the update section. Old wrong-try counters / one-hour locks stored by earlier builds are wiped on every attempt, so the right password is never refused.
+
+[Material 3 / accent / gradient / fonts]
+- Material.h/.m: tonal row cards (large outer corners, small inner ones), section headers (collapsible in Settings), Material switch, gradient slider with a ring thumb, cookie-shaped mascot, moving gradient view.
+- Appearance > Design style: Classic or Material 3 (Settings rows become cards with circle icons, left-aligned title, folding sections; chat bubbles get rounder shapes).
+- Appearance > Accent colour: new fixed (non-scrolling) page like the reference video: tinted gradient page, preview card with hex and mascot, Hue / Saturation / Brightness sliders, ten ready colours, Default button. The picked colour tints the whole palette (backgrounds, cards, borders, chat). Picking a skin drops the custom colour. Skins moved to Appearance > Chat theme.
+- Chat theme: new wallpaper "Gradient động" (moving gradient built from the accent colour, light or dark).
+- Font page: SF Rounded added (rounded design of the system font, iOS 13+; iOS 12 keeps the normal system font) and a 7-step weight slider. All [UIFont systemFontOfSize:...] go through FontStyle.m (method exchange), the chat web view gets the same font stack and weight.
+- Not compiled or run on a device.

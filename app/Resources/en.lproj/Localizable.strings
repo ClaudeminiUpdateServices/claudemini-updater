@@ -338,3 +338,16 @@
 "dev_hours" = "%ld h";
 "dev_err_tamper" = "A debugger or instrumentation tool was found. Unlock refused.";
 "dev_err_throttle" = "cút mẹ m đi";
+"appearance_menu_design" = "Design style";
+"design_classic" = "Classic";
+"design_material" = "Material 3";
+"design_message" = "Material 3 uses rounded cards, tones taken from the accent colour, and Google-style switches and sliders.";
+"accent_default" = "Default";
+"accent_hue" = "Hue";
+"accent_saturation" = "Saturation";
+"accent_brightness" = "Brightness";
+"wallpaper_gradient" = "Moving gradient";
+"wallpaper_gradient_note" = "Background that moves with the accent colour";
+"font_rounded" = "SF Rounded";
+"font_weight_title" = "Font weight";
+"font_weight_normal" = "Normal";

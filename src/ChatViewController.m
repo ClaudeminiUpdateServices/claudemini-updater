@@ -26,6 +26,8 @@
 #import "KeyTier.h"
 #import "OfficeExport.h"
 #import "VoiceChatManager.h"
+#import "FontStyle.h"
+#import "Material.h"
 #import <math.h>
 
 static const CGFloat kMaxInputHeight = 120;
@@ -208,6 +210,7 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (assign, nonatomic) BOOL pendingModelPopup;
 @property (assign, nonatomic) BOOL pendingModelPopupIntro;
 @property (strong, nonatomic) UIImageView *wallpaperView;
+@property (strong, nonatomic) MaterialGradientView *gradientView;   // the moving accent gradient wallpaper
 @property (strong, nonatomic) UIView *dimView;
 @property (assign, nonatomic) CGFloat keyboardOverlap;
 
@@ -782,6 +785,9 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.dimView = [[UIView alloc] init];
     self.dimView.userInteractionEnabled = NO;
     [self.wallpaperView addSubview:self.dimView];
+    self.gradientView = [[MaterialGradientView alloc] init];
+    self.gradientView.hidden = YES;
+    [self.chatStageView addSubview:self.gradientView];
 
     self.webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
     self.webView.navigationDelegate = self;
@@ -1037,6 +1043,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     self.webView.frame = CGRectMake(0, 0, width, CGRectGetMinY(self.inputBar.frame));
     self.wallpaperView.frame = self.webView.frame;
+    self.gradientView.frame = self.webView.frame;
     self.dimView.frame = self.wallpaperView.bounds;
     self.chatRightOverlayButton.frame = self.chatStageView.bounds;
     if (self.historyDrawerOpen) {
@@ -1321,12 +1328,22 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 - (NSString *)scaleCSSRuleForScale:(CGFloat)scale {
     CGFloat clamped = MIN(1.4, MAX(0.7, scale));
     CGFloat bubbleMaxW = MIN(96.0, MAX(60.0, 80.0 * clamped));
-    return [NSString stringWithFormat:
+    NSInteger step = [AppSettings fontWeightStep];
+    NSString *weightRule = step == 0 ? @"" : [NSString stringWithFormat:
+            @"body,.bubble,.btext,.markdown,p,li,td{font-weight:%ld;}strong,b,h1,h2,h3,h4,h5,h6,th{font-weight:%ld;}",
+            (long)CMWebFontWeight(), (long)MIN(900, CMWebFontWeight() + 300)];
+    return [weightRule stringByAppendingFormat:
             @":root{--uiscale:%.3f;}"
              "html{font-size:calc(16px * var(--uiscale)) !important;}"
              "body,#chat,.chat,.messages,#messages,.msg,.msg-row,.msg-wrap,.msg-text,.msg-content,.markdown,.markdown-body,pre,code,table,blockquote,p,li{font-size:calc(16px * var(--uiscale)) !important;line-height:1.45 !important;}"
              ".msg,.bubble,.message,.msg-bubble{max-width:%.1f%% !important;padding:calc(10px * var(--uiscale)) calc(14px * var(--uiscale)) !important;border-radius:calc(14px * var(--uiscale)) !important;}",
             clamped, bubbleMaxW];
+}
+
+- (NSString *)scaleCSSRuleForScaleMaterialAware:(CGFloat)scale {
+    NSString *rule = [self scaleCSSRuleForScale:scale];
+    if ([Theme materialDesign]) rule = [rule stringByReplacingOccurrencesOfString:@"border-radius:calc(14px" withString:@"border-radius:calc(22px"];
+    return rule;
 }
 
 - (void)loadWebPage {
@@ -1344,8 +1361,8 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     css = [css stringByReplacingOccurrencesOfString:@"{{LOGO}}" withString:logoURI];
 
     CGFloat scale = [AppSettings uiScale];
-    css = [css stringByAppendingFormat:@"\n:root{--serif:%@;}", [self serifCSSValue]];
-    css = [css stringByAppendingFormat:@"\n%@", [self scaleCSSRuleForScale:scale]];
+    css = [css stringByAppendingFormat:@"\n:root{--serif:%@;--ui-font:%@;}", [self serifCSSValue], CMWebFontStack()];
+    css = [css stringByAppendingFormat:@"\n%@", [self scaleCSSRuleForScaleMaterialAware:scale]];
     html = [html stringByReplacingOccurrencesOfString:@"{{CSS}}" withString:css];
     html = [html stringByReplacingOccurrencesOfString:@"{{JS}}" withString:js];
     [self.webView loadHTMLString:html baseURL:nil];
@@ -1435,6 +1452,9 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.wallpaperView.image = wallpaper;
     self.wallpaperView.hidden = (wallpaper == nil);
     self.dimView.backgroundColor = [UIColor colorWithWhite:0 alpha:[Theme wallpaperDimAlpha]];
+    BOOL movingGradient = [Theme gradientWallpaperActive];
+    self.gradientView.hidden = !movingGradient;
+    if (movingGradient) [self.gradientView refreshColors];
     self.webView.scrollView.indicatorStyle = [Theme darkMode] ? UIScrollViewIndicatorStyleWhite : UIScrollViewIndicatorStyleDefault;
 
     [self.modelButton setTitleColor:[Theme text] forState:UIControlStateNormal];
@@ -1976,14 +1996,14 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 }
 
 - (NSString *)serifCSSValue {
-    return [AppSettings fontStyle] == 1 ? @"-apple-system, \"Helvetica Neue\", Helvetica, sans-serif" : @"Georgia, \"Times New Roman\", serif";
+    return [AppSettings fontStyle] == 0 ? @"Georgia, \"Times New Roman\", serif" : CMWebFontStack();
 }
 
 - (void)applyUIScaleToNativeAndWeb {
     // Called on every appearance of the chat: do the work only when the size or the font really changed,
     // otherwise returning from Settings would restyle the page (and flash the greeting) for nothing.
     CGFloat sc = [AppSettings uiScale];
-    NSString *sig = [NSString stringWithFormat:@"%.3f|%ld", sc, (long)[AppSettings fontStyle]];
+    NSString *sig = [NSString stringWithFormat:@"%.3f|%ld|%ld|%d", sc, (long)[AppSettings fontStyle], (long)[AppSettings fontWeightStep], [Theme materialDesign] ? 1 : 0];
     if (![sig isEqualToString:self.appliedNativeScaleSig]) {
         self.appliedNativeScaleSig = sig;
         self.textView.font = [UIFont systemFontOfSize:17.0 * sc];
@@ -1994,17 +2014,18 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     if (!self.webReady || !self.webView) return;
     if ([sig isEqualToString:self.appliedWebScaleSig]) return;
     self.appliedWebScaleSig = sig;
-    NSData *fontData = [NSJSONSerialization dataWithJSONObject:@[[self serifCSSValue]] options:0 error:nil];
+    NSData *fontData = [NSJSONSerialization dataWithJSONObject:@[[self serifCSSValue], CMWebFontStack()] options:0 error:nil];
     NSString *fontJSON = fontData ? [[NSString alloc] initWithData:fontData encoding:NSUTF8StringEncoding] : @"[\"Georgia, serif\"]";
-    NSData *cssData = [NSJSONSerialization dataWithJSONObject:@[[self scaleCSSRuleForScale:sc]] options:0 error:nil];
+    NSData *cssData = [NSJSONSerialization dataWithJSONObject:@[[self scaleCSSRuleForScaleMaterialAware:sc]] options:0 error:nil];
     NSString *cssJSON = cssData ? [[NSString alloc] initWithData:cssData encoding:NSUTF8StringEncoding] : @"[\"\"]";
     NSString *script = [NSString stringWithFormat:
                         @"(function(){"
                          "document.documentElement.style.setProperty('--serif',(%@)[0]);"
+                         "document.documentElement.style.setProperty('--ui-font',(%@)[1]);"
                          "var el=document.getElementById('uiscale_live_css');"
                          "if(!el){el=document.createElement('style');el.id='uiscale_live_css';document.head.appendChild(el);}"
                          "el.textContent=(%@)[0];"
-                         "})();", fontJSON, cssJSON];
+                         "})();", fontJSON, fontJSON, cssJSON];
     [self.webView evaluateJavaScript:script completionHandler:nil];
 }
 

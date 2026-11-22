@@ -15,6 +15,7 @@
 #import "UpdatePopupViewController.h"
 #import "SoftwareUpdateViewController.h"
 #import "DevAccess.h"
+#import "Material.h"
 
 #pragma mark - Font / Message Preview Screen
 
@@ -37,13 +38,29 @@
 @property (strong, nonatomic) NSLayoutConstraint *userLeftPaddingConstraint;
 @property (strong, nonatomic) NSLayoutConstraint *userRightPaddingConstraint;
 @property (strong, nonatomic) NSLayoutConstraint *bubbleGapConstraint;
+@property (strong, nonatomic) UISlider *weightSlider;
+@property (strong, nonatomic) UILabel *weightValueLabel;
 @property (strong, nonatomic) NSArray<UIImageView *> *fontChecks;   // tick of the Claude font / system font row
 @end
 
 // Claude font (serif) or the iOS system font, whichever is chosen.
 static UIFont *PreviewFont(CGFloat size, BOOL bold) {
-    if ([AppSettings fontStyle] == 1) return [UIFont systemFontOfSize:size weight:bold ? UIFontWeightSemibold : UIFontWeightRegular];
+    if ([AppSettings fontStyle] != 0) return [UIFont systemFontOfSize:size weight:bold ? UIFontWeightSemibold : UIFontWeightRegular];   // the app-wide font hook adds the rounded design / weight
     return [UIFont fontWithName:@"Georgia" size:size] ?: [UIFont systemFontOfSize:size weight:bold ? UIFontWeightSemibold : UIFontWeightRegular];
+}
+
+// Font of each row of the font list, drawn in its own design whatever is chosen now (system rows ignore the rounded hook).
+static UIFont *FontPreviewRowFont(NSInteger row) {
+    if (row == 0) return [UIFont fontWithName:@"Georgia" size:19] ?: [UIFont systemFontOfSize:19];
+    UIFont *plain = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];   // not touched by the font hook
+    UIFontDescriptor *descriptor = [plain.fontDescriptor fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold];
+    if (row == 2) {
+        if (@available(iOS 13.0, *)) {
+            UIFontDescriptor *rounded = [(descriptor ?: plain.fontDescriptor) fontDescriptorWithDesign:UIFontDescriptorSystemDesignRounded];
+            if (rounded) return [UIFont fontWithDescriptor:rounded size:19];
+        }
+    }
+    return [UIFont fontWithDescriptor:(descriptor ?: plain.fontDescriptor) size:19];
 }
 
 static UIImage *TickImage(UIColor *color) {
@@ -167,7 +184,7 @@ static UIImage *TickImage(UIColor *color) {
     NSMutableArray<UIImageView *> *checks = [NSMutableArray array];
     NSMutableArray<NSLayoutConstraint *> *fontConstraints = [NSMutableArray array];
     UIView *previousRow = nil;
-    for (NSInteger i = 0; i < 2; i++) {
+    for (NSInteger i = 0; i < 3; i++) {
         UIButton *row = [UIButton buttonWithType:UIButtonTypeCustom];
         row.translatesAutoresizingMaskIntoConstraints = NO;
         row.tag = i;
@@ -177,9 +194,9 @@ static UIImage *TickImage(UIColor *color) {
         UILabel *name = [[UILabel alloc] init];
         name.translatesAutoresizingMaskIntoConstraints = NO;
         name.userInteractionEnabled = NO;
-        name.text = L(i == 1 ? @"font_system" : @"font_claude");
+        name.text = L(i == 1 ? @"font_system" : (i == 2 ? @"font_rounded" : @"font_claude"));
         name.textColor = [Theme text];
-        name.font = i == 1 ? [UIFont systemFontOfSize:19 weight:UIFontWeightSemibold] : ([UIFont fontWithName:@"Georgia" size:19] ?: [UIFont systemFontOfSize:19]);
+        name.font = FontPreviewRowFont(i);
         [row addSubview:name];
 
         UIImageView *tick = [[UIImageView alloc] initWithImage:TickImage([Theme accent])];
@@ -200,7 +217,7 @@ static UIImage *TickImage(UIColor *color) {
             [tick.widthAnchor constraintEqualToConstant:20],
             [tick.heightAnchor constraintEqualToConstant:20],
         ]];
-        if (i == 0) {
+        if (i < 2) {
             UIView *line = [[UIView alloc] init];
             line.translatesAutoresizingMaskIntoConstraints = NO;
             line.backgroundColor = [Theme border];
@@ -214,7 +231,46 @@ static UIImage *TickImage(UIColor *color) {
         }
         previousRow = row;
     }
-    [fontConstraints addObject:[previousRow.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor]];
+    // Font weight: lighter ... bolder, in seven steps.
+    UIView *weightDivider = [[UIView alloc] init];
+    weightDivider.translatesAutoresizingMaskIntoConstraints = NO;
+    weightDivider.backgroundColor = [Theme border];
+    [fontCard addSubview:weightDivider];
+    UILabel *weightTitle = [[UILabel alloc] init];
+    weightTitle.translatesAutoresizingMaskIntoConstraints = NO;
+    weightTitle.text = L(@"font_weight_title");
+    weightTitle.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    weightTitle.textColor = [Theme text];
+    [fontCard addSubview:weightTitle];
+    self.weightValueLabel = [[UILabel alloc] init];
+    self.weightValueLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.weightValueLabel.font = [UIFont monospacedDigitSystemFontOfSize:16 weight:UIFontWeightSemibold];
+    self.weightValueLabel.textColor = [Theme accent];
+    [fontCard addSubview:self.weightValueLabel];
+    self.weightSlider = [[UISlider alloc] init];
+    self.weightSlider.translatesAutoresizingMaskIntoConstraints = NO;
+    self.weightSlider.minimumValue = -3;
+    self.weightSlider.maximumValue = 3;
+    self.weightSlider.value = (float)[AppSettings fontWeightStep];
+    self.weightSlider.tintColor = [Theme accent];
+    [self.weightSlider addTarget:self action:@selector(weightChanged:) forControlEvents:UIControlEventValueChanged];
+    [self.weightSlider addTarget:self action:@selector(weightReleased:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+    [fontCard addSubview:self.weightSlider];
+    [fontConstraints addObjectsFromArray:@[
+        [weightDivider.leadingAnchor constraintEqualToAnchor:fontCard.leadingAnchor constant:16],
+        [weightDivider.trailingAnchor constraintEqualToAnchor:fontCard.trailingAnchor],
+        [weightDivider.topAnchor constraintEqualToAnchor:previousRow.bottomAnchor],
+        [weightDivider.heightAnchor constraintEqualToConstant:1.0 / [UIScreen mainScreen].scale],
+        [weightTitle.topAnchor constraintEqualToAnchor:weightDivider.bottomAnchor constant:12],
+        [weightTitle.leadingAnchor constraintEqualToAnchor:fontCard.leadingAnchor constant:16],
+        [self.weightValueLabel.centerYAnchor constraintEqualToAnchor:weightTitle.centerYAnchor],
+        [self.weightValueLabel.trailingAnchor constraintEqualToAnchor:fontCard.trailingAnchor constant:-16],
+        [self.weightSlider.topAnchor constraintEqualToAnchor:weightTitle.bottomAnchor constant:6],
+        [self.weightSlider.leadingAnchor constraintEqualToAnchor:fontCard.leadingAnchor constant:16],
+        [self.weightSlider.trailingAnchor constraintEqualToAnchor:fontCard.trailingAnchor constant:-16],
+        [self.weightSlider.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor constant:-10],
+    ]];
+    [self updateWeightLabel];
     self.fontChecks = checks;
     [NSLayoutConstraint activateConstraints:fontConstraints];
     [NSLayoutConstraint activateConstraints:@[
@@ -246,7 +302,7 @@ static UIImage *TickImage(UIColor *color) {
         [self.previewContainer.topAnchor constraintEqualToAnchor:safe.topAnchor constant:16],
         [self.previewContainer.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.previewContainer.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
-        [self.previewContainer.heightAnchor constraintGreaterThanOrEqualToConstant:210],
+        [self.previewContainer.heightAnchor constraintGreaterThanOrEqualToConstant:170],
 
         [self.aiBubble.topAnchor constraintEqualToAnchor:self.previewContainer.topAnchor constant:14],
         [self.aiBubble.leadingAnchor constraintEqualToAnchor:self.previewContainer.leadingAnchor constant:14],
@@ -287,14 +343,32 @@ static UIImage *TickImage(UIColor *color) {
     [self applyScale:initialScale];
 }
 
+- (void)updateWeightLabel {
+    NSInteger step = [AppSettings fontWeightStep];
+    self.weightValueLabel.text = step == 0 ? L(@"font_weight_normal") : [NSString stringWithFormat:@"%+ld", (long)step];
+}
+
+- (void)weightChanged:(UISlider *)slider {
+    NSInteger step = (NSInteger)lround(slider.value);
+    slider.value = (float)step;   // snaps to the seven steps
+    if (step == [AppSettings fontWeightStep]) return;
+    [AppSettings setFontWeightStep:step];
+    [self updateWeightLabel];
+    [self applyScale:[AppSettings uiScale]];
+}
+
+- (void)weightReleased:(UISlider *)slider {
+    [Theme postChange];   // bars and titles pick the new weight up
+}
+
 - (void)updateFontChecks {
-    NSInteger style = [AppSettings fontStyle] == 1 ? 1 : 0;
+    NSInteger style = [AppSettings fontStyle];
     for (NSInteger i = 0; i < (NSInteger)self.fontChecks.count; i++) self.fontChecks[i].hidden = (i != style);
 }
 
 - (void)fontRowTapped:(UIButton *)sender {
-    NSInteger style = sender.tag == 1 ? 1 : 0;
-    if (([AppSettings fontStyle] == 1 ? 1 : 0) == style) return;
+    NSInteger style = sender.tag;
+    if ([AppSettings fontStyle] == style) return;
     [AppSettings setFontStyle:style];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"UIScaleDidChangeNotification" object:nil];
     [Theme postChange];   // bars and titles pick the new font up
@@ -395,19 +469,9 @@ static void StrokeLine(CGPoint a, CGPoint b, CGFloat width) {
     [line stroke];
 }
 
-static UIImage *SettingsIcon(SettingsIconKind kind) {
-    static NSMutableDictionary<NSNumber *, UIImage *> *cache;
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
-    UIImage *cached = cache[@(kind)];
-    if (cached) return cached;
-
-    const CGFloat side = 30;
-    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
-    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
-        [SettingsTileColor(kind) setFill];
-        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, side, side) cornerRadius:6.9] fill];
-        UIColor *white = [UIColor whiteColor];
+// Draws the glyph of a row icon in a 30 x 30 box with the given ink colour.
+static void DrawSettingsGlyph(SettingsIconKind kind, UIColor *ink) {
+    UIColor *white = ink;
         [white setStroke];
         [white setFill];
         CGPoint c = CGPointMake(15, 15);
@@ -578,8 +642,31 @@ static UIImage *SettingsIcon(SettingsIconKind kind) {
                 break;
             }
         }
+}
+
+static UIImage *SettingsIcon(SettingsIconKind kind) {
+    static NSMutableDictionary<NSString *, UIImage *> *cache;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{ cache = [NSMutableDictionary dictionary]; });
+    BOOL material = [Theme materialDesign];
+    NSString *cacheKey = [NSString stringWithFormat:@"%ld|%d|%@", (long)kind, material ? 1 : 0, material ? [Theme signature] : @""];
+    UIImage *cached = cache[cacheKey];
+    if (cached) return cached;
+    if (material) {
+        UIColor *ink = [Theme accent];
+        UIImage *circle = [Material circleIconWithGlyph:^(CGContextRef ctx) { DrawSettingsGlyph(kind, ink); }];
+        cache[cacheKey] = circle;
+        return circle;
+    }
+
+    const CGFloat side = 30;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(side, side)];
+    UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+        [SettingsTileColor(kind) setFill];
+        [[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0, 0, side, side) cornerRadius:6.9] fill];
+        DrawSettingsGlyph(kind, [UIColor whiteColor]);
     }];
-    cache[@(kind)] = image;
+    cache[cacheKey] = image;
     return image;
 }
 
@@ -598,6 +685,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 @interface SettingsViewController ()
 @property (strong, nonatomic) UITableView *tableView;
 @property (assign, nonatomic) BOOL hasAppearedOnce;
+@property (strong, nonatomic) NSMutableSet<NSNumber *> *collapsedSections;   // Material 3: sections folded by their header
 @end
 
 @implementation SettingsViewController
@@ -616,6 +704,8 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     self.tableView.backgroundColor = [Theme background];
     self.tableView.separatorColor = [Theme border];
     [self.view addSubview:self.tableView];
+    self.collapsedSections = [NSMutableSet set];
+    [self applyMaterialStyle];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applyTheme) name:kNotifThemeChanged object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleUIScaleChanged) name:@"UIScaleDidChangeNotification" object:nil];
@@ -723,15 +813,30 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     if (self.view.window) [self.tableView reloadData];
 }
 
+- (void)applyMaterialStyle {
+    BOOL material = [Material active];
+    self.tableView.separatorStyle = material ? UITableViewCellSeparatorStyleNone : UITableViewCellSeparatorStyleSingleLine;
+    self.tableView.rowHeight = material ? 68 : UITableViewAutomaticDimension;
+    [Material layoutTable:self.tableView inBounds:self.view.bounds];
+    [Material styleTitleForController:self];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    [Material layoutTable:self.tableView inBounds:self.view.bounds];
+}
+
 - (void)applyTheme {
     self.view.backgroundColor = [Theme background];
     self.tableView.backgroundColor = [Theme background];
     self.tableView.separatorColor = [Theme border];
+    [self applyMaterialStyle];
     if (self.view.window) [self.tableView reloadData];   // hidden behind another screen: it reloads when it comes back (viewWillAppear)
 }
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    [self applyMaterialStyle];
     // The table was just built in viewDidLoad: only refresh when coming BACK from a sub-screen (keys / prompt may have changed).
     if (self.hasAppearedOnce) [self.tableView reloadData];
     self.hasAppearedOnce = YES;
@@ -779,6 +884,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    if ([Material active] && [self.collapsedSections containsObject:@(section)]) return 0;
     if (section == SettingsSectionLook) return 3;      // look, language, font size
     if (section == SettingsSectionKeys) return 3;      // Gemini key, Claude key, kind of Gemini key
     if (section == SettingsSectionAssistant) return 4;
@@ -801,7 +907,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:nil];
+    UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:[Material cellStyle:UITableViewCellStyleValue1] reuseIdentifier:nil];
     cell.backgroundColor = [Theme surface];
     cell.textLabel.font = [UIFont systemFontOfSize:17];
     cell.textLabel.textColor = [Theme text];
@@ -920,6 +1026,32 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 }
 
 #pragma mark - UITableViewDelegate
+
+- (void)tableView:(UITableView *)tableView willDisplayCell:(UITableViewCell *)cell forRowAtIndexPath:(NSIndexPath *)indexPath {
+    [Material decorateCell:cell atIndexPath:indexPath inTable:tableView];
+}
+
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+    if (![Material active]) return nil;
+    NSString *title = [self tableView:tableView titleForHeaderInSection:section];
+    BOOL collapsed = [self.collapsedSections containsObject:@(section)];
+    __weak typeof(self) weakSelf = self;
+    return [Material headerViewWithTitle:title collapsed:collapsed collapsible:YES tap:^{
+        SettingsViewController *me = weakSelf;
+        if (!me) return;
+        if ([me.collapsedSections containsObject:@(section)]) [me.collapsedSections removeObject:@(section)];
+        else [me.collapsedSections addObject:@(section)];
+        [me.tableView reloadData];
+    }];
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+    return [Material active] ? [Material headerHeight] : UITableViewAutomaticDimension;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+    return [Material active] ? 6 : UITableViewAutomaticDimension;
+}
 
 - (void)tableView:(UITableView *)tableView willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
     if ([view isKindOfClass:[UITableViewHeaderFooterView class]]) ((UITableViewHeaderFooterView *)view).textLabel.textColor = [Theme secondaryText];

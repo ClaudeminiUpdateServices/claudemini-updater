@@ -86,7 +86,7 @@
 }
 
 - (void)applyPendingBarStyle {
-    NSString *signature = [NSString stringWithFormat:@"%ld|%d|%ld", (long)[Theme skin], [Theme darkMode] ? 1 : 0, (long)[AppSettings fontStyle]];
+    NSString *signature = [NSString stringWithFormat:@"%ld|%d|%ld|%ld|%d|%@", (long)[Theme skin], [Theme darkMode] ? 1 : 0, (long)[AppSettings fontStyle], (long)[AppSettings fontWeightStep], [Theme materialDesign] ? 1 : 0, [Theme signature]];
     if ([signature isEqualToString:self.barSignature]) return;   // e.g. only the wallpaper changed
     self.barSignature = signature;
     [Theme styleNavigationBar:self.navigationBar];

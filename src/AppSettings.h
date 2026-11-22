@@ -51,8 +51,10 @@ typedef NS_ENUM(NSInteger, AIReasoningLevel) {
 + (BOOL)autoUpdateCheckEnabled;       // look for a new version at launch / in Settings without being asked (default on)
 + (void)setAutoUpdateCheckEnabled:(BOOL)enabled;
 
-+ (NSInteger)fontStyle;               // 0 = Claude (serif titles and answers), 1 = system font
++ (NSInteger)fontStyle;               // 0 = Claude (serif titles and answers), 1 = system font, 2 = SF Rounded
 + (void)setFontStyle:(NSInteger)style;
++ (NSInteger)fontWeightStep;           // -3...3: lighter / bolder than normal (0)
++ (void)setFontWeightStep:(NSInteger)step;
 + (void)setUiScale:(CGFloat)scale;
 
 // Tự đọc lời trả lời của AI bằng giọng nói (TTS) sau khi nhận được tin nhắn.
