@@ -280,7 +280,7 @@
 "dev_err_wrong" = "next giùm t cái.";
 "dev_checking" = "Đang kiểm tra cập nhật cho developer";
 "dev_err_busy" = "Checking, please wait.";
-"dev_err_lockout" = "cút mẹ m đi";
+"dev_err_lockout" = "Ai biểu spam cho cố vô, skip thì liên hệ zalo pucpucpuc để lấy key skip";
 "dev_seconds" = "%ld seconds";
 "dev_minutes" = "%ld minutes";
 "dev_err_locked" = "The developer session is locked. Enter the password again.";
@@ -337,3 +337,4 @@
 "su_options_footer" = "The developer channel opens only after the password and locks again when you leave this screen.";
 "dev_hours" = "%ld h";
 "dev_err_tamper" = "A debugger or instrumentation tool was found. Unlock refused.";
+"dev_skip_ok" = "The lock is removed. Now enter the password again.";

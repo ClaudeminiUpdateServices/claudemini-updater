@@ -520,6 +520,7 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
 - (void)presentPasswordPrompt {
     if (self.presentedViewController) return;
     ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:L(@"dev_prompt_msg")];
+    alert.blurBackdrop = YES;
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
         field.placeholder = L(@"dev_prompt_placeholder");
         field.secureTextEntry = YES;
@@ -559,13 +560,16 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
             return;
         }
         NSString *message;
+        if (result == DevAccessResultSkipped) {
+            // A release code ended the wait: say so, then ask for the password again.
+            ChoicePopupViewController *done = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:L(@"dev_skip_ok")];
+            done.blurBackdrop = YES;
+            [done addAction:[ChoiceAction actionWithTitle:L(@"dev_prompt_ok") style:UIAlertActionStyleDefault handler:^(id a) { [weakSelf presentPasswordPrompt]; }]];
+            if (!me.presentedViewController) [done presentFromViewController:me];
+            return;
+        }
         if (result == DevAccessResultLockedOut) {
-            NSInteger secs = (NSInteger)ceil(wait);
-            NSString *time;
-            if (secs >= 7200) time = [NSString stringWithFormat:L(@"dev_hours"), (long)((secs + 3599) / 3600)];
-            else if (secs >= 120) time = [NSString stringWithFormat:L(@"dev_minutes"), (long)((secs + 59) / 60)];
-            else time = [NSString stringWithFormat:L(@"dev_seconds"), (long)MAX(secs, 1)];
-            message = [NSString stringWithFormat:L(@"dev_err_lockout"), time];
+            message = L(@"dev_err_lockout");
         } else if (result == DevAccessResultBusy) {
             message = L(@"dev_err_busy");
         } else if (result == DevAccessResultTampered) {
@@ -574,6 +578,7 @@ typedef NS_ENUM(NSInteger, SUSection) { SUSectionOptions = 0, SUSectionCard, SUS
             message = L(@"dev_err_wrong");
         }
         ChoicePopupViewController *fail = [ChoicePopupViewController alertWithTitle:L(@"dev_prompt_title") message:message];
+        fail.blurBackdrop = YES;
         [fail addAction:[ChoiceAction actionWithTitle:L(@"update_close") style:UIAlertActionStyleCancel handler:nil]];
         if (!me.presentedViewController) [fail presentFromViewController:me];
     }];

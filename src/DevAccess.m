@@ -33,6 +33,62 @@ static NSString *const kSealTag = @"16a9e2441c49aeb970c24bc8edae65d9e13e3a63676d
 static const uint32_t kRoundsC = 120000;
 static const char kSealPrefix[] = "CMDEV-GATE-OPEN-";
 
+// Release codes: whoever types one of these while the gate is shut ends the wait (each works once). Only salted SHA-256 hashes
+// are here; the codes themselves are not in the app or in the repository.
+static NSString *const kSkipSalt = @"fbb152d7b89462068826ac8b5d0bed89";
+static NSString *const kSkipHashes[50] = {
+    @"2bd85cd962802bb0907e020c699aff79966738c99fedd92c44b5f45aac66a954",
+    @"48ce88a4101cd7301f879fea5828de8ef95f91ae6504a7d6845dc13a6b79e417",
+    @"7ef6e2c3d83f52998ffaa671b7f67bf0f8d937d80ad0b90ca4c3bbe72e72217d",
+    @"ef856ca4777ea6e23575e33ad09fc35bb84789772f3bc6ddcc2887920f5ffaae",
+    @"e1f7e7f155acd58b1c491db3d4e39578a01fd7003863ff3aae601bd535dbbcfd",
+    @"a15845a44dfb61b1b1d642202764607554e7f913946e4bac91314028eba9fba7",
+    @"b6a269f0929243e4f57bbfed31931ced58fda511901620be7ceb3d1fa80ff4d3",
+    @"0d461b075d4bef38c5867e6080dc4b8514bd4003c9d23811375d334163f9441e",
+    @"deb24362c12660fd49055486e4a84e10ffa313de4bf4a7eb4b8bc372fbb9704c",
+    @"c9b7c0f042c6354b5af99ee4188b9182f7ea0d8308a4adda48b502ca14adf338",
+    @"1e6a110f14208117a2efd7a96251cc4c03494b08a4da02feeb04164a7db27305",
+    @"000420c3c81f6f334e632e5b7aba4f7c0e3c6c22ce73a04ecfbe265370a1d8d8",
+    @"e6376c259a2065c567cf4abf5393d7d4e0e4d8bdb27ec9371f7a196d92d76df7",
+    @"cc4a1f646bf6459fe9bcfd9ef22d31fddbc8cb2797f155787755401b6f1d3b3d",
+    @"e50a7d269d53d28cda3c14b64a6ff89f138d37a856f53db0c2bb261bb066906f",
+    @"4916c86bcfcd935b53ef780c01bcc884f66ab1f0f30f15ac42731f75e04a7335",
+    @"efb5ba4807d5d5eb7f63c0e491f62bd217b439017f754f40aa8c66f8978abe74",
+    @"79ab2415b5c40726783bc6146ff721c10b035ba23da2c7e618037557574821e4",
+    @"8d143b4b522bd391a198d37a42872eb108e707fc1a8fe308dbd258a7b04ac7a7",
+    @"ca907f0b47c687713a6025614dee48139653af9d8c45634e4d7e88b31aa9dc76",
+    @"1416e2db33588c1d3fa63027e92939161fccb6d1345e9b88c80d8b582dc356e6",
+    @"d7f734072ff249be339bcc26e74f2746680817919bd9debb020dc0d5c4ce6a82",
+    @"2e7190e0d55574439cf5b7ef6f5bc1812b2ece557318179edfc0a36d12ca9100",
+    @"8fa787b8140c1cdb7479166dfeacc67ed8e9e5d41e9fa408fdddc0a43031141a",
+    @"6010077af3f30eff70aa2574ce08afca8666a8f072ae0ff81a00be04623090fd",
+    @"06e6a52228af62eb2eb6cd1007bf0c2effe830d5b80ac276995ccfb0ac15a2bc",
+    @"b55aa81530a3862270517758e4cd4938926b2ff3063e37646dc8422b3718e5a7",
+    @"b4be5a0b933a5526d1213da0151fb173f8171d3c678946fc6f777f5c6b978859",
+    @"e297d3026ecb90aa37c1729673ef08ce70e9abda74d161d1e313db4049aaa4c0",
+    @"43a840d52a1ad38700a16bf96067b11888b95287381f7b976f76954bc0766df7",
+    @"b5fe92eb144546f67ce9092cff646c14231f40778cb66752ab96ed0532e54fd9",
+    @"10d5d795b0872d8cf3d6a608a9351f0a6330e821e8e746493f36d725e7c71fb4",
+    @"8fc3c4c0a8cb6f9c034f67a71114825d16307221f86520c4d5da231ab28b6a10",
+    @"e46051115b9dd610271b93ad23166807085fd501b97869f0689a453c45f0ee50",
+    @"506aaaf4643665878595931506611bef1f641296f44d4a2c2c23928665a0bfc0",
+    @"dcab911728f67747fa95dd4c038a085c33eb9aa0af15e9feab61816eab9a76eb",
+    @"0c8b4d5a11028a2efd6551b55cdb5aeab76a23554146cff0c91ab756a823d324",
+    @"4d6328c2186f420a30328dfbba993cfd918efe03f7c0815ce8538bd245fab40a",
+    @"bbfa76e6c8ce346ce950d5f579b7253577a88e15998f74c0175a1efa8db6ef85",
+    @"e46d13a2c7589f3f97f03f24568be38bf1cfdeb70e9fba706c41c0c7e8ad7d03",
+    @"a96a4fe9a11ceb779550a9e026a2fb7e17661a0d5faf5653835353d39f287afa",
+    @"e6ec4a1c3cc5c1511bb5611c1ee21cce04fb1b305d15d36500bbd805fe3f6a4b",
+    @"654f56725fe16acdd3e0b9cbcfd672a45dae0271538e36ddb4d5c62d9cf16984",
+    @"a93decfccb6f3da1fa8bba3330337398c839fc611b74b39d024b011f36c56790",
+    @"f9dd7c9c4226db67bd5faff8aa5b72a40260e752c08dbba29745e21876446aa4",
+    @"11d4f5b0736990f6917ae75710ce11a9abc49e8e84c07fe402e4b9210459a7c7",
+    @"cb831560a4507648814fb4439c9f754fb20bb100ee2154b1c503c6f435f31ae4",
+    @"e4f1e895ece63e826c891366fa07633fa88e30a806e31fec77a4c2fdffa35fbd",
+    @"13cfd034669973a3d0bd3583b2e41b5c52a8a934017d3379d9c474b01c78965e",
+    @"27cca11d89be4a26628249fe3eb450e2f17a98873f73e0dafa7aa7abd9fb951a"
+};
+
 static const NSUInteger kMaxPasswordBytes = 256;
 static const NSTimeInterval kSessionLifetime = 15 * 60;
 static NSString *const kKeychainService = @"com.claudemini.devgate";
@@ -72,6 +128,7 @@ typedef struct {
     NSTimeInterval boot;      // boot time of the device when `mono` was written
     NSTimeInterval mono;      // monotonic-clock time (seconds) until which the gate is shut
     BOOL valid;
+    unsigned long long used;  // bit i set = release code number i was used (each code works once)
 } AttemptRecord;
 
 static NSString *const kInstallKeyAccount = @"installkey";
@@ -136,7 +193,7 @@ static NSTimeInterval BootTime(void) {
 }
 
 static NSData *SealRecord(AttemptRecord r, NSData *key) {
-    NSDictionary *dict = @{ @"f": @(r.fails), @"u": @(r.until), @"t": @(r.seen), @"b": @(r.boot), @"m": @(r.mono), @"v": @2 };
+    NSDictionary *dict = @{ @"f": @(r.fails), @"u": @(r.until), @"t": @(r.seen), @"b": @(r.boot), @"m": @(r.mono), @"k": @(r.used), @"v": @2 };
     NSData *json = [NSJSONSerialization dataWithJSONObject:dict options:NSJSONWritingSortedKeys error:nil];
     if (!json || key.length != 32) return nil;
     uint8_t mac[CC_SHA256_DIGEST_LENGTH];
@@ -163,17 +220,16 @@ static AttemptRecord OpenRecord(NSData *blob, NSData *key, BOOL *tampered) {
     r.seen = [obj[@"t"] doubleValue];
     r.boot = [obj[@"b"] doubleValue];
     r.mono = [obj[@"m"] doubleValue];
+    r.used = [obj[@"k"] unsignedLongLongValue] & ((1ull << 50) - 1);
     r.valid = YES;
     return r;
 }
 
+// 3 free tries, then 30 s doubling (30 s ... 32 min), and from the 10th wrong password on the gate is shut for 1 hour each time.
 static NSTimeInterval PenaltyForFailures(NSInteger fails) {
     if (fails < 3) return 0;
-    double delay = 30.0 * pow(2.0, (double)MIN(fails - 3, 7));
-    delay = MIN(delay, 3600.0);
-    if (fails >= 20) delay = 86400.0;
-    else if (fails >= 12) delay = 21600.0;
-    return delay;
+    if (fails >= 10) return 3600.0;
+    return 30.0 * pow(2.0, (double)(fails - 3));
 }
 
 // Reads the three copies, keeps the worst of them and restores the ones that are missing.
@@ -209,6 +265,7 @@ static AttemptRecord LoadAttempts(void) {
         worst.fails = MAX(worst.fails, r.fails);
         worst.until = MAX(worst.until, r.until);
         worst.seen = MAX(worst.seen, r.seen);
+        worst.used |= r.used;   // a code that was used in any copy stays used
         if (r.mono > 0 && r.boot > 0 && fabs(r.boot - bootNow) < 3.0) {
             worst.mono = MAX(worst.mono, r.mono);
             worst.boot = r.boot;
@@ -235,11 +292,12 @@ static AttemptRecord LoadAttempts(void) {
     return worst;
 }
 
-static void SaveAttempts(NSInteger fails, NSTimeInterval wait) {
+static void SaveAttempts(NSInteger fails, NSTimeInterval wait, unsigned long long used) {
     NSData *key = InstallKey();
     NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
     AttemptRecord r = {0, 0, 0, 0, 0, YES};
     r.fails = fails;
+    r.used = used;
     r.seen = now;
     if (wait > 0) {
         r.until = now + wait;
@@ -283,6 +341,31 @@ static BOOL HostileEnvironment(void) {
         if ([lower containsString:@"frida"] || [lower containsString:@"cycript"] || [lower containsString:@"gadget"]) return YES;
     }
     return NO;
+}
+
+#pragma mark - Release codes
+
+// Index (0...49) of the release code that was typed, or -1. All 50 are always compared, in constant time.
+static NSInteger ReleaseCodeIndex(NSData *typed) {
+    NSData *trimmed = typed;
+    NSString *text = [[NSString alloc] initWithData:typed encoding:NSUTF8StringEncoding];
+    text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (text.length > 0) trimmed = [text dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *salt = DataFromHex(kSkipSalt);
+    uint8_t digest[CC_SHA256_DIGEST_LENGTH];
+    CC_SHA256_CTX ctx;
+    CC_SHA256_Init(&ctx);
+    CC_SHA256_Update(&ctx, salt.bytes, (CC_LONG)salt.length);
+    CC_SHA256_Update(&ctx, trimmed.bytes, (CC_LONG)trimmed.length);
+    CC_SHA256_Final(digest, &ctx);
+    NSInteger found = -1;
+    for (NSInteger i = 0; i < 50; i++) {
+        NSData *expected = DataFromHex(kSkipHashes[i]);
+        BOOL same = expected.length == sizeof(digest) && ConstantTimeEqual(digest, expected.bytes, sizeof(digest));
+        if (same) found = i;
+    }
+    memset_s(digest, sizeof(digest), 0, sizeof(digest));
+    return found;
 }
 
 #pragma mark - DevAccess
@@ -390,18 +473,25 @@ static BOOL HostileEnvironment(void) {
         NSInteger fails = record.fails;
         NSTimeInterval locked = RemainingLock(record);
         if (locked > 0) {
+            // A release code (each works once) ends the wait; the password is still needed afterwards.
+            NSInteger code = ReleaseCodeIndex(bytes);
+            BOOL fresh = code >= 0 && ((record.used >> code) & 1ull) == 0;
+            if (fresh) SaveAttempts(0, 0, record.used | (1ull << code));
             memset_s(bytes.mutableBytes, bytes.length, 0, bytes.length);
-            dispatch_async(dispatch_get_main_queue(), ^{ self.busy = NO; finish(DevAccessResultLockedOut, locked); });
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.busy = NO;
+                if (fresh) finish(DevAccessResultSkipped, 0); else finish(DevAccessResultLockedOut, locked);
+            });
             return;
         }
         BOOL ok = [self verifyPasswordBytes:bytes.bytes length:bytes.length];
         NSTimeInterval wait = 0;
         if (ok) {
-            SaveAttempts(0, 0);
+            SaveAttempts(0, 0, record.used);
         } else {
             fails += 1;
             wait = PenaltyForFailures(fails);
-            SaveAttempts(fails, wait);
+            SaveAttempts(fails, wait, record.used);
         }
         // Every attempt takes at least 1.5 s, right or wrong, so guessing through the interface is slow.
         NSTimeInterval spent = CFAbsoluteTimeGetCurrent() - started;

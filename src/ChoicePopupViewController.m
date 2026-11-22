@@ -136,7 +136,16 @@ static const CGFloat kButtonHeight = 48;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.42];
+    if (self.blurBackdrop) {
+        self.view.backgroundColor = [UIColor clearColor];
+        UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight]];
+        blur.frame = self.view.bounds;
+        blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        blur.userInteractionEnabled = NO;
+        [self.view addSubview:blur];
+    } else {
+        self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.42];
+    }
 
     self.card = [[UIView alloc] init];
     self.card.backgroundColor = [Theme background];

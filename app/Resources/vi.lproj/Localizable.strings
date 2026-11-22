@@ -281,7 +281,7 @@
 "dev_err_wrong" = "next giùm t cái.";
 "dev_checking" = "Đang kiểm tra cập nhật cho developer";
 "dev_err_busy" = "Đang kiểm tra, vui lòng đợi.";
-"dev_err_lockout" = "cút mẹ m đi";
+"dev_err_lockout" = "Ai biểu spam cho cố vô, skip thì liên hệ zalo pucpucpuc để lấy key skip";
 "dev_seconds" = "%ld giây";
 "dev_minutes" = "%ld phút";
 "dev_err_locked" = "Phiên developer đã khóa. Hãy nhập lại mật khẩu.";
@@ -338,3 +338,4 @@
 "su_options_footer" = "Bản Developer chỉ mở sau khi nhập mật khẩu và tự khóa lại khi bạn rời màn hình này.";
 "dev_hours" = "%ld giờ";
 "dev_err_tamper" = "Phát hiện trình gỡ lỗi hoặc công cụ can thiệp đang chạy. Đã từ chối mở khóa.";
+"dev_skip_ok" = "Đã bỏ khóa. Giờ hãy nhập lại mật khẩu.";

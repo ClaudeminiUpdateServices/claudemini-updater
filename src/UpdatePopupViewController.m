@@ -61,7 +61,13 @@ static NSString *SizeText(long long bytes) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.view.backgroundColor = [UIColor colorWithWhite:0 alpha:0.42];
+    // The same blur as behind the chat history list.
+    self.view.backgroundColor = [UIColor clearColor];
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight]];
+    blur.frame = self.view.bounds;
+    blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    blur.userInteractionEnabled = NO;
+    [self.view addSubview:blur];
 
     self.card = [[UIView alloc] init];
     self.card.backgroundColor = [Theme background];
