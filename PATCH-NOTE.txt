@@ -35,3 +35,6 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [Chat hang fix]
 - GeminiStream/ClaudeStream: watchdog timer (live streams only). No first byte within 45-150 s (Gemini, by model) or 30-45 s (Claude), or silence mid-stream for 60-150 s: the task is cut and, if no text arrived, restarted silently on a fresh connection (max 2 times); otherwise finishes with a Network error so the existing continuation logic keeps the partial reply. Late callbacks of replaced sessions are ignored.
 - Idle timeouts shortened (live 100/160 s, single request 180/360 s).
+
+[Release]
+- Official 0.7.4 (beta 0.7.4-1 promoted).
