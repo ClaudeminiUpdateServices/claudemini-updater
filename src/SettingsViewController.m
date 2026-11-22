@@ -110,6 +110,7 @@ static UIImage *TickImage(UIColor *color) {
         [content.leadingAnchor constraintEqualToAnchor:scroll.leadingAnchor],
         [content.trailingAnchor constraintEqualToAnchor:scroll.trailingAnchor],
         [content.widthAnchor constraintEqualToAnchor:scroll.widthAnchor],
+        [content.heightAnchor constraintGreaterThanOrEqualToAnchor:scroll.heightAnchor constant:90],   // always a little to scroll, so the weight row can be lifted clear of the bottom edge
     ]];
     self.scrollView = scroll;
 
@@ -305,7 +306,7 @@ static UIImage *TickImage(UIColor *color) {
         [fontCard.topAnchor constraintEqualToAnchor:fontHeader.bottomAnchor constant:8],
         [fontCard.leadingAnchor constraintEqualToAnchor:safe0.leadingAnchor constant:16],
         [fontCard.trailingAnchor constraintEqualToAnchor:safe0.trailingAnchor constant:-16],
-        [content.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor constant:48],   // room under the card for the home bar
+        [content.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor constant:64],   // room under the card for the home bar
     ]];
     [self updateFontChecks];
 
