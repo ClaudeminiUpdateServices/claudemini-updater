@@ -34,7 +34,9 @@
 
 @interface MaterialMascotView : UIView
 @property (strong, nonatomic) UIColor *shapeColor;
-@property (assign, nonatomic) CGFloat hue;   // 0...1: decides the number of lobes and the turn
+@property (assign, nonatomic) CGFloat hue;   // 0...1: picks the shape; the figure morphs to it
+- (void)morphToNext;   // go to the next shape now (used on taps)
+- (void)step:(CADisplayLink *)link;
 @end
 
 #pragma mark - Moving gradient made from the accent colour

@@ -60,3 +60,9 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Settings text is smaller and balanced (title 16, detail 13, section header 13).
 - Design, accent colour and font changes apply at once: the chat re-applies radii, font and theme without leaving the page.
 - Not compiled or run on a device.
+
+[0.8.0 beta 2]
+- Font page is now inside a scroll view (the weight slider at the bottom could not be reached) and uses Material 3 card radii.
+- Accent page mascot: turns all the time and morphs from one shape to the next (circle, cookie, clover, burst, soft square, flower, soft triangle, sunny) with a spring; dragging the hue slider morphs it live; it also changes by itself every few seconds.
+- Material slider: thumb swells under the finger and springs back, larger touch area.
+- Not compiled or run on a device.

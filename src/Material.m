@@ -282,42 +282,207 @@ static const CGFloat kSliderTrackHeight = 28;
     [self sendActionsForControlEvents:UIControlEventValueChanged];
 }
 
-- (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event { [self updateFromTouch:touch]; return YES; }
+- (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
+    [self updateFromTouch:touch];
+    [self growThumb:YES];
+    return YES;
+}
 - (BOOL)continueTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event { [self updateFromTouch:touch]; return YES; }
-- (void)endTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event { if (touch) [self updateFromTouch:touch]; }
+- (void)endTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event { if (touch) [self updateFromTouch:touch]; [self growThumb:NO]; }
+- (void)cancelTrackingWithEvent:(UIEvent *)event { [self growThumb:NO]; }
+
+// The thumb swells under the finger and springs back (Expressive slider feel).
+- (void)growThumb:(BOOL)grow {
+    CGAffineTransform target = grow ? CGAffineTransformMakeScale(1.18, 1.18) : CGAffineTransformIdentity;
+    if (UIAccessibilityIsReduceMotionEnabled()) { self.thumbView.transform = target; return; }
+    [UIView animateWithDuration:0.45 delay:0 usingSpringWithDamping:0.55 initialSpringVelocity:0.8 options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState animations:^{
+        self.thumbView.transform = target;
+    } completion:nil];
+}
+
+// A generous touch area: the whole row of the slider, a little beyond its edges.
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    return CGRectContainsPoint(CGRectInset(self.bounds, -8, -10), point);
+}
 
 @end
 
 #pragma mark - MaterialMascotView
 
+// Proxy so the display link does not retain the view (a retained view would never be released).
+@interface MascotLinkProxy : NSObject
+@property (weak, nonatomic) MaterialMascotView *view;
+- (void)tick:(CADisplayLink *)link;
+@end
+
+#define MASCOT_SAMPLES 160
+#define MASCOT_SHAPES 8
+
+@interface MaterialMascotView ()
+@property (strong, nonatomic) CAShapeLayer *shapeLayer;
+@property (strong, nonatomic) CADisplayLink *link;
+@property (assign, nonatomic) CFTimeInterval lastTime;
+@property (assign, nonatomic) CFTimeInterval idleTime;   // time since the last morph, for the automatic cycle
+@property (assign, nonatomic) NSInteger shapeIndex;
+@property (assign, nonatomic) CGFloat progress;          // 0...1 of the running morph (1 = finished)
+@property (assign, nonatomic) CGFloat angle;
+@property (assign, nonatomic) CGFloat spin;              // extra angular speed that fades out after a morph
+@end
+
+@implementation MascotLinkProxy
+- (void)tick:(CADisplayLink *)link { [self.view step:link]; }
+@end
+
+static CGFloat gMascotFrom[MASCOT_SAMPLES], gMascotTo[MASCOT_SAMPLES];
+
+// Radius of shape `index` (before normalising) at angle t. The set walks through the Material 3 Expressive
+// shapes: circle, cookie, clover, burst, soft square, flower, soft triangle, sunny.
+static CGFloat MascotRadius(NSInteger index, CGFloat t) {
+    switch (index % MASCOT_SHAPES) {
+        case 0: return 1.0;
+        case 1: return 1.0 + 0.085 * cos(9 * t);
+        case 2: return 1.0 + 0.24 * cos(4 * t);
+        case 3: { CGFloat c = fabs(cos(6 * t)); return 0.80 + 0.20 * pow(c, 0.55); }
+        case 4: { CGFloat c = fabs(cos(t)), s = fabs(sin(t)); return 1.0 / pow(pow(c, 4.5) + pow(s, 4.5), 1.0 / 4.5); }
+        case 5: return 1.0 + 0.18 * cos(5 * t);
+        case 6: return 1.0 + 0.30 * cos(3 * t);
+        default: return 1.0 + 0.10 * cos(12 * t) + 0.04 * cos(24 * t);
+    }
+}
+
+static void MascotFill(CGFloat *out, NSInteger index) {
+    CGFloat peak = 0;
+    for (int i = 0; i < MASCOT_SAMPLES; i++) {
+        out[i] = MascotRadius(index, (CGFloat)i / MASCOT_SAMPLES * 2 * M_PI);
+        if (out[i] > peak) peak = out[i];
+    }
+    if (peak > 0) for (int i = 0; i < MASCOT_SAMPLES; i++) out[i] /= peak;
+}
+
 @implementation MaterialMascotView
 
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
-    if (self) { self.backgroundColor = [UIColor clearColor]; self.userInteractionEnabled = NO; _shapeColor = [UIColor colorWithWhite:1 alpha:0.35]; }
+    if (self) {
+        self.backgroundColor = [UIColor clearColor];
+        self.userInteractionEnabled = NO;
+        _shapeColor = [UIColor colorWithWhite:1 alpha:0.35];
+        _shapeLayer = [CAShapeLayer layer];
+        _shapeLayer.fillColor = _shapeColor.CGColor;
+        [self.layer addSublayer:_shapeLayer];
+        _shapeIndex = 1;
+        _progress = 1;
+        MascotFill(gMascotTo, 1);
+        memcpy(gMascotFrom, gMascotTo, sizeof(gMascotTo));
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appBecameActive) name:UIApplicationDidBecomeActiveNotification object:nil];
+        [self rebuildPath];
+    }
     return self;
 }
 
-- (void)setHue:(CGFloat)hue { _hue = hue; [self setNeedsDisplay]; }
-- (void)setShapeColor:(UIColor *)shapeColor { _shapeColor = shapeColor; [self setNeedsDisplay]; }
+- (void)dealloc { [self.link invalidate]; [[NSNotificationCenter defaultCenter] removeObserver:self]; }
 
-- (void)drawRect:(CGRect)rect {
-    CGPoint center = CGPointMake(CGRectGetMidX(self.bounds), CGRectGetMidY(self.bounds));
-    CGFloat radius = MIN(self.bounds.size.width, self.bounds.size.height) / 2.0 * 0.94;
-    NSInteger lobes = 5 + (NSInteger)floor(MAX(0, MIN(0.999, self.hue)) * 7.0);   // 5...11 lobes
-    CGFloat amplitude = lobes <= 6 ? 0.17 : (lobes <= 8 ? 0.13 : 0.09);
-    CGFloat turn = self.hue * M_PI;
+- (void)appBecameActive { if (self.window) [self startLink]; }
+
+- (void)startLink {
+    if (self.link || UIAccessibilityIsReduceMotionEnabled()) return;
+    MascotLinkProxy *proxy = [[MascotLinkProxy alloc] init];
+    proxy.view = self;
+    self.link = [CADisplayLink displayLinkWithTarget:proxy selector:@selector(tick:)];
+    self.link.preferredFramesPerSecond = 60;
+    self.lastTime = 0;
+    [self.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+}
+
+- (void)stopLink { [self.link invalidate]; self.link = nil; }
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    if (self.window) [self startLink]; else [self stopLink];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.shapeLayer.frame = self.bounds;
+    [CATransaction commit];
+    [self rebuildPath];
+}
+
+- (void)setShapeColor:(UIColor *)shapeColor {
+    _shapeColor = shapeColor;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.shapeLayer.fillColor = shapeColor.CGColor;
+    [CATransaction commit];
+}
+
+// The hue picks the shape, so dragging the hue slider morphs the figure from one shape to the next.
+- (void)setHue:(CGFloat)hue {
+    _hue = hue;
+    NSInteger target = (NSInteger)floor(MAX(0, MIN(0.999, hue)) * MASCOT_SHAPES);
+    if (target != self.shapeIndex) [self morphToShape:target];
+}
+
+- (void)morphToShape:(NSInteger)index {
+    // start from what is on screen right now, so a morph interrupted half-way continues smoothly
+    CGFloat s = [self easedProgress];
+    for (int i = 0; i < MASCOT_SAMPLES; i++) gMascotFrom[i] = gMascotFrom[i] + (gMascotTo[i] - gMascotFrom[i]) * s;
+    self.shapeIndex = index;
+    MascotFill(gMascotTo, index);
+    self.progress = 0;
+    self.idleTime = 0;
+    self.spin = 5.5;   // the figure turns quickly while it changes, then settles to a slow turn
+    if (!self.link || UIAccessibilityIsReduceMotionEnabled()) { self.progress = 1; [self rebuildPath]; }
+}
+
+- (void)morphToNext { [self morphToShape:(self.shapeIndex + 1) % MASCOT_SHAPES]; }
+
+// Spring-like curve with a small overshoot, like the Expressive "spatial" motion.
+- (CGFloat)easedProgress {
+    CGFloat t = MAX(0, MIN(1, self.progress));
+    if (t >= 1) return 1;
+    return 1 - exp(-7.5 * t) * cos(10.5 * t);
+}
+
+- (void)step:(CADisplayLink *)link {
+    CFTimeInterval now = link.timestamp;
+    CFTimeInterval dt = self.lastTime > 0 ? MIN(0.05, now - self.lastTime) : 1.0 / 60.0;
+    self.lastTime = now;
+    if (self.window == nil || self.bounds.size.width < 1) return;
+
+    self.angle += (0.55 + self.spin) * dt;                       // always turning
+    if (self.angle > 2 * M_PI) self.angle -= 2 * M_PI;
+    self.spin = MAX(0, self.spin - dt * 5.0);
+    if (self.progress < 1) {
+        self.progress = MIN(1, self.progress + dt / 0.85);
+    } else {
+        self.idleTime += dt;
+        if (self.idleTime > 2.6) [self morphToNext];             // keeps changing by itself while you look at it
+    }
+    [self rebuildPath];
+}
+
+- (void)rebuildPath {
+    CGFloat w = self.bounds.size.width, h = self.bounds.size.height;
+    if (w < 1 || h < 1) return;
+    CGFloat s = [self easedProgress];
+    CGPoint center = CGPointMake(w / 2.0, h / 2.0);
+    CGFloat radius = MIN(w, h) / 2.0 * 0.94;
     UIBezierPath *path = [UIBezierPath bezierPath];
-    const int steps = 240;
-    for (int i = 0; i <= steps; i++) {
-        CGFloat angle = (CGFloat)i / steps * 2 * M_PI;
-        CGFloat r = radius * (1 - amplitude + amplitude * cos(lobes * angle));
-        CGPoint pt = CGPointMake(center.x + r * cos(angle + turn), center.y + r * sin(angle + turn));
+    for (int i = 0; i <= MASCOT_SAMPLES; i++) {
+        int k = i % MASCOT_SAMPLES;
+        CGFloat r = radius * (gMascotFrom[k] + (gMascotTo[k] - gMascotFrom[k]) * s);
+        CGFloat a = (CGFloat)k / MASCOT_SAMPLES * 2 * M_PI + self.angle;
+        CGPoint pt = CGPointMake(center.x + r * cos(a), center.y + r * sin(a));
         if (i == 0) [path moveToPoint:pt]; else [path addLineToPoint:pt];
     }
     [path closePath];
-    [self.shapeColor setFill];
-    [path fill];
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.shapeLayer.path = path.CGPath;
+    [CATransaction commit];
 }
 
 @end

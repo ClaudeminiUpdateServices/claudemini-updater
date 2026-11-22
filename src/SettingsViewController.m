@@ -38,6 +38,7 @@
 @property (strong, nonatomic) NSLayoutConstraint *userLeftPaddingConstraint;
 @property (strong, nonatomic) NSLayoutConstraint *userRightPaddingConstraint;
 @property (strong, nonatomic) NSLayoutConstraint *bubbleGapConstraint;
+@property (strong, nonatomic) UIScrollView *scrollView;
 @property (strong, nonatomic) UISlider *weightSlider;
 @property (strong, nonatomic) UILabel *weightValueLabel;
 @property (strong, nonatomic) NSArray<UIImageView *> *fontChecks;   // tick of the Claude font / system font row
@@ -87,14 +88,39 @@ static UIImage *TickImage(UIColor *color) {
 
     CGFloat initialScale = [AppSettings uiScale];
 
+    // Everything sits in a scroll view: with the font and weight rows the page is taller than a phone screen.
+    UIScrollView *scroll = [[UIScrollView alloc] init];
+    scroll.translatesAutoresizingMaskIntoConstraints = NO;
+    scroll.alwaysBounceVertical = YES;
+    scroll.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
+    scroll.showsVerticalScrollIndicator = NO;
+    scroll.delaysContentTouches = NO;
+    if (@available(iOS 11.0, *)) scroll.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    [self.view addSubview:scroll];
+    UIView *content = [[UIView alloc] init];
+    content.translatesAutoresizingMaskIntoConstraints = NO;
+    [scroll addSubview:content];
+    [NSLayoutConstraint activateConstraints:@[
+        [scroll.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [content.topAnchor constraintEqualToAnchor:scroll.topAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:scroll.bottomAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:scroll.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:scroll.trailingAnchor],
+        [content.widthAnchor constraintEqualToAnchor:scroll.widthAnchor],
+    ]];
+    self.scrollView = scroll;
+
     // Khung preview tin nhắn
     self.previewContainer = [[UIView alloc] init];
     self.previewContainer.translatesAutoresizingMaskIntoConstraints = NO;
     self.previewContainer.backgroundColor = [Theme surface];
-    self.previewContainer.layer.cornerRadius = 16;
+    self.previewContainer.layer.cornerRadius = MR(16, 28);
     self.previewContainer.layer.borderWidth = 1.0 / [UIScreen mainScreen].scale;
     self.previewContainer.layer.borderColor = [Theme border].CGColor;
-    [self.view addSubview:self.previewContainer];
+    [content addSubview:self.previewContainer];
 
     // Bong bóng tin nhắn AI
     self.aiBubble = [[UIView alloc] init];
@@ -130,10 +156,10 @@ static UIImage *TickImage(UIColor *color) {
     UIView *controlCard = [[UIView alloc] init];
     controlCard.translatesAutoresizingMaskIntoConstraints = NO;
     controlCard.backgroundColor = [Theme surface];
-    controlCard.layer.cornerRadius = 14;
+    controlCard.layer.cornerRadius = MR(14, 28);
     controlCard.layer.borderWidth = 1.0 / [UIScreen mainScreen].scale;
     controlCard.layer.borderColor = [Theme border].CGColor;
-    [self.view addSubview:controlCard];
+    [content addSubview:controlCard];
 
     UILabel *titleLabel = [[UILabel alloc] init];
     titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -161,7 +187,7 @@ static UIImage *TickImage(UIColor *color) {
     resetButton.translatesAutoresizingMaskIntoConstraints = NO;
     [resetButton setTitle:@"M\u1EB7c \u0111\u1ECBnh (100%)" forState:UIControlStateNormal];
     [resetButton addTarget:self action:@selector(resetScale) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:resetButton];
+    [content addSubview:resetButton];
 
     UILayoutGuide *safe0 = self.view.safeAreaLayoutGuide;
     // Font chữ: Claude font or system font, each row shown in its own font
@@ -170,16 +196,16 @@ static UIImage *TickImage(UIColor *color) {
     fontHeader.text = [L(@"font_header") uppercaseString];
     fontHeader.font = [UIFont systemFontOfSize:13];
     fontHeader.textColor = [Theme secondaryText];
-    [self.view addSubview:fontHeader];
+    [content addSubview:fontHeader];
 
     UIView *fontCard = [[UIView alloc] init];
     fontCard.translatesAutoresizingMaskIntoConstraints = NO;
     fontCard.backgroundColor = [Theme surface];
-    fontCard.layer.cornerRadius = 14;
+    fontCard.layer.cornerRadius = MR(14, 28);
     fontCard.layer.masksToBounds = YES;
     fontCard.layer.borderWidth = 1.0 / [UIScreen mainScreen].scale;
     fontCard.layer.borderColor = [Theme border].CGColor;
-    [self.view addSubview:fontCard];
+    [content addSubview:fontCard];
 
     NSMutableArray<UIImageView *> *checks = [NSMutableArray array];
     NSMutableArray<NSLayoutConstraint *> *fontConstraints = [NSMutableArray array];
@@ -279,6 +305,7 @@ static UIImage *TickImage(UIColor *color) {
         [fontCard.topAnchor constraintEqualToAnchor:fontHeader.bottomAnchor constant:8],
         [fontCard.leadingAnchor constraintEqualToAnchor:safe0.leadingAnchor constant:16],
         [fontCard.trailingAnchor constraintEqualToAnchor:safe0.trailingAnchor constant:-16],
+        [content.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor constant:48],   // room under the card for the home bar
     ]];
     [self updateFontChecks];
 
