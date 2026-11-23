@@ -101,3 +101,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 10]
 - Font page made compact so it fits an iPhone SE (667 pt) without scrolling: font rows 52 -> 46, preview card min 140, smaller gaps, 24 pt under the last card. The scroll view (with about 100 pt of extra room) stays as a second safeguard.
 - Not compiled or run on a device.
+
+[0.8.0 beta 11]
+- Gradient wallpaper redone: instead of one linear gradient whose colours and angle rotate (visible bands), it is now an aurora: a base colour with five large soft radial blobs (hues around the accent) that drift along slow elliptical paths and breathe. Soft in light mode, deep in dark mode; still when Reduce Motion is on.
+- Not compiled or run on a device.

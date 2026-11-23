@@ -489,17 +489,32 @@ static void MascotFill(CGFloat *out, NSInteger index) {
 
 #pragma mark - MaterialGradientView
 
-@implementation MaterialGradientView
+// A soft aurora: a base colour with five large, blurred colour blobs (all derived from the accent) that drift
+// along slow elliptical paths and breathe. No stripes and no spinning bands, only light moving in colour.
+#define GRADIENT_BLOBS 5
 
-+ (Class)layerClass { return [CAGradientLayer class]; }
+@interface MaterialGradientView ()
+@property (strong, nonatomic) NSMutableArray<CAGradientLayer *> *blobs;
+@property (assign, nonatomic) CGSize builtSize;
+@end
+
+@implementation MaterialGradientView
 
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
     if (self) {
         self.userInteractionEnabled = NO;
-        CAGradientLayer *layer = (CAGradientLayer *)self.layer;
-        layer.startPoint = CGPointMake(0, 0);
-        layer.endPoint = CGPointMake(1, 1);
+        self.clipsToBounds = YES;
+        _blobs = [NSMutableArray array];
+        for (int i = 0; i < GRADIENT_BLOBS; i++) {
+            CAGradientLayer *blob = [CAGradientLayer layer];
+            blob.type = kCAGradientLayerRadial;
+            blob.startPoint = CGPointMake(0.5, 0.5);
+            blob.endPoint = CGPointMake(1.0, 1.0);
+            blob.locations = @[@0.0, @0.35, @0.7, @1.0];
+            [self.layer addSublayer:blob];
+            [_blobs addObject:blob];
+        }
         NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
         [center addObserver:self selector:@selector(refreshColors) name:UIApplicationDidBecomeActiveNotification object:nil];
         [center addObserver:self selector:@selector(stopMoving) name:UIApplicationWillResignActiveNotification object:nil];
@@ -512,43 +527,91 @@ static void MascotFill(CGFloat *out, NSInteger index) {
 
 - (void)didMoveToWindow {
     [super didMoveToWindow];
-    if (self.window) [self refreshColors]; else [self stopMoving];
+    if (self.window) { self.builtSize = CGSizeZero; [self refreshColors]; [self setNeedsLayout]; } else [self stopMoving];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (!CGSizeEqualToSize(self.builtSize, self.bounds.size)) [self rebuildMotion];
 }
 
 - (void)stopMoving {
-    [self.layer removeAllAnimations];
+    for (CAGradientLayer *blob in self.blobs) [blob removeAllAnimations];
+    self.builtSize = CGSizeZero;
+}
+
+// Colours of one blob: the accent hue moved a little, soft in light mode, deep in dark mode.
+- (NSArray *)colorsForBlob:(NSInteger)index {
+    static const CGFloat hueShift[GRADIENT_BLOBS] = { 0.0, 0.08, -0.07, 0.16, -0.14 };
+    static const CGFloat strength[GRADIENT_BLOBS] = { 0.95, 0.80, 0.85, 0.65, 0.75 };
+    CGFloat h = 0, s = 0, v = 0, alpha = 0;
+    [[Theme accent] getHue:&h saturation:&s brightness:&v alpha:&alpha];
+    CGFloat hue = fmod(h + hueShift[index] + 1.0, 1.0);
+    BOOL dark = [Theme darkMode];
+    CGFloat sat = MAX(0.35, MIN(1.0, s * (dark ? 0.95 : 0.62)));
+    CGFloat bri = dark ? MIN(0.78, MAX(0.5, v * 0.7)) : 1.0;
+    CGFloat peak = (dark ? 0.62 : 0.55) * strength[index];
+    UIColor *core = [UIColor colorWithHue:hue saturation:sat brightness:bri alpha:peak];
+    UIColor *mid  = [UIColor colorWithHue:hue saturation:sat brightness:bri alpha:peak * 0.55];
+    UIColor *soft = [UIColor colorWithHue:hue saturation:sat brightness:bri alpha:peak * 0.18];
+    UIColor *none = [UIColor colorWithHue:hue saturation:sat brightness:bri alpha:0];
+    return @[(id)core.CGColor, (id)mid.CGColor, (id)soft.CGColor, (id)none.CGColor];
 }
 
 - (void)refreshColors {
-    CAGradientLayer *layer = (CAGradientLayer *)self.layer;
-    NSArray<UIColor *> *colors = [Theme gradientWallpaperColors];
-    NSMutableArray *a = [NSMutableArray array], *b = [NSMutableArray array];
-    for (UIColor *c in colors) [a addObject:(id)c.CGColor];
-    for (NSUInteger i = 0; i < colors.count; i++) [b addObject:(id)colors[(i + 2) % colors.count].CGColor];
-    [self.layer removeAllAnimations];
+    self.backgroundColor = [Theme background];
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    layer.colors = a;
+    for (NSInteger i = 0; i < (NSInteger)self.blobs.count; i++) self.blobs[i].colors = [self colorsForBlob:i];
     [CATransaction commit];
-    if (!self.window || UIAccessibilityIsReduceMotionEnabled()) return;
+    if (self.window && self.builtSize.width < 1) [self setNeedsLayout];
+}
 
-    CABasicAnimation *shift = [CABasicAnimation animationWithKeyPath:@"colors"];
-    shift.fromValue = a; shift.toValue = b;
-    shift.duration = 9; shift.autoreverses = YES; shift.repeatCount = HUGE_VALF;
-    shift.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-    [self.layer addAnimation:shift forKey:@"colors"];
+- (void)rebuildMotion {
+    CGSize size = self.bounds.size;
+    if (size.width < 2 || size.height < 2) return;
+    self.builtSize = size;
+    // anchor (x, y), diameter (x longest side), radius of the drift (x, y), seconds per lap, direction
+    static const CGFloat spec[GRADIENT_BLOBS][7] = {
+        { 0.22, 0.18, 1.15, 0.20, 0.10, 23,  1 },
+        { 0.80, 0.32, 1.05, 0.16, 0.16, 29, -1 },
+        { 0.28, 0.72, 1.25, 0.20, 0.12, 33,  1 },
+        { 0.85, 0.86, 1.05, 0.14, 0.14, 27, -1 },
+        { 0.55, 0.48, 0.95, 0.24, 0.18, 37,  1 },
+    };
+    CGFloat longest = MAX(size.width, size.height);
+    BOOL still = UIAccessibilityIsReduceMotionEnabled() || self.window == nil;
+    for (int i = 0; i < GRADIENT_BLOBS; i++) {
+        CAGradientLayer *blob = self.blobs[i];
+        [blob removeAllAnimations];
+        CGFloat d = longest * spec[i][2];
+        CGPoint center = CGPointMake(size.width * spec[i][0], size.height * spec[i][1]);
+        CGFloat rx = size.width * spec[i][3], ry = size.height * spec[i][4];
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        blob.bounds = CGRectMake(0, 0, d, d);
+        blob.position = CGPointMake(center.x + rx, center.y);   // where the path below starts
+        [CATransaction commit];
+        if (still) { blob.position = center; continue; }
 
-    CABasicAnimation *start = [CABasicAnimation animationWithKeyPath:@"startPoint"];
-    start.fromValue = [NSValue valueWithCGPoint:CGPointMake(0, 0)]; start.toValue = [NSValue valueWithCGPoint:CGPointMake(1, 0.25)];
-    start.duration = 11; start.autoreverses = YES; start.repeatCount = HUGE_VALF;
-    start.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-    [self.layer addAnimation:start forKey:@"start"];
+        UIBezierPath *loop = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(center.x - rx, center.y - ry, rx * 2, ry * 2)];
+        if (spec[i][6] < 0) loop = [loop bezierPathByReversingPath];
+        CAKeyframeAnimation *drift = [CAKeyframeAnimation animationWithKeyPath:@"position"];
+        drift.path = loop.CGPath;
+        drift.duration = spec[i][5];
+        drift.repeatCount = HUGE_VALF;
+        drift.calculationMode = kCAAnimationPaced;
+        drift.timeOffset = spec[i][5] * (0.13 * (i + 1));   // the blobs do not start in a row
+        [blob addAnimation:drift forKey:@"drift"];
 
-    CABasicAnimation *end = [CABasicAnimation animationWithKeyPath:@"endPoint"];
-    end.fromValue = [NSValue valueWithCGPoint:CGPointMake(1, 1)]; end.toValue = [NSValue valueWithCGPoint:CGPointMake(0.2, 0.8)];
-    end.duration = 13; end.autoreverses = YES; end.repeatCount = HUGE_VALF;
-    end.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-    [self.layer addAnimation:end forKey:@"end"];
+        CABasicAnimation *breathe = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
+        breathe.fromValue = @0.88; breathe.toValue = @1.14;
+        breathe.duration = 8 + 1.7 * i;
+        breathe.autoreverses = YES;
+        breathe.repeatCount = HUGE_VALF;
+        breathe.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        [blob addAnimation:breathe forKey:@"breathe"];
+    }
 }
 
 @end
