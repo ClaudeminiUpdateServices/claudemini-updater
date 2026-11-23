@@ -2,6 +2,7 @@
 #import "AppSettings.h"
 #import <objc/runtime.h>
 #import <CoreText/CoreText.h>
+#import <dlfcn.h>
 
 // The nine SF Pro Rounded weights shipped in the app (Resources/Fonts), lightest first.
 static NSString *const kRoundedNames[9] = {
@@ -80,22 +81,51 @@ static UIFont *RoundedFont(CGFloat size, CGFloat weight) {
     });
 }
 
-// After the exchange, this body runs for [UIFont systemFontOfSize:weight:] and calling cm_... runs the original.
-+ (UIFont *)cm_systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight {
+// ---- Only the app's own text is restyled ----
+// The three methods are exchanged for the whole process, so UIKit's own code (alerts, keyboard, share sheet,
+// context menus ...) would also get the chosen font. Each replacement therefore looks at who is calling:
+// only code inside this app's executable gets the SF Rounded / weight treatment, everything else gets the
+// untouched system font.
+static const void *OwnImageBase(void) {
+    static const void *base = NULL;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        Dl_info info;
+        if (dladdr((const void *)&OwnImageBase, &info)) base = info.dli_fbase;
+    });
+    return base;
+}
+
+static BOOL CalledFromApp(const void *returnAddress) {
+    Dl_info info;
+    if (!dladdr(returnAddress, &info)) return NO;
+    return info.dli_fbase != NULL && info.dli_fbase == OwnImageBase();
+}
+
+// The styled font for the app; `original` is the system's own implementation (reached through the exchanged selector).
++ (UIFont *)cm_styledFontOfSize:(CGFloat)size weight:(UIFontWeight)weight {
     CGFloat adjusted = AdjustedWeight(weight);
     if ([AppSettings fontStyle] == 2) {
         UIFont *rounded = RoundedFont(size, adjusted);   // the shipped SF Pro Rounded files: also on iOS 12
         if (rounded) return rounded;
     }
-    return [self cm_systemFontOfSize:size weight:adjusted];
+    return [self cm_systemFontOfSize:size weight:adjusted];   // after the exchange: the original implementation
+}
+
+// After the exchange, this body runs for [UIFont systemFontOfSize:weight:] and calling cm_... runs the original.
++ (UIFont *)cm_systemFontOfSize:(CGFloat)size weight:(UIFontWeight)weight {
+    if (!CalledFromApp(__builtin_return_address(0))) return [self cm_systemFontOfSize:size weight:weight];
+    return [self cm_styledFontOfSize:size weight:weight];
 }
 
 + (UIFont *)cm_systemFontOfSize:(CGFloat)size {
-    return [UIFont systemFontOfSize:size weight:UIFontWeightRegular];   // goes through the replacement above
+    if (!CalledFromApp(__builtin_return_address(0))) return [self cm_systemFontOfSize:size];   // the original plain method
+    return [self cm_styledFontOfSize:size weight:UIFontWeightRegular];
 }
 
 + (UIFont *)cm_boldSystemFontOfSize:(CGFloat)size {
-    return [UIFont systemFontOfSize:size weight:UIFontWeightBold];
+    if (!CalledFromApp(__builtin_return_address(0))) return [self cm_boldSystemFontOfSize:size];   // the original bold method
+    return [self cm_styledFontOfSize:size weight:UIFontWeightBold];
 }
 
 @end

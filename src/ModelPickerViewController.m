@@ -219,11 +219,19 @@
 #pragma mark - UITableViewDelegate
 
 - (void)tableView:(UITableView *)tableView willDisplayHeaderView:(UIView *)view forSection:(NSInteger)section {
-    if ([view isKindOfClass:[UITableViewHeaderFooterView class]]) ((UITableViewHeaderFooterView *)view).textLabel.textColor = [Theme secondaryText];
+    if ([view isKindOfClass:[UITableViewHeaderFooterView class]]) {
+        UILabel *label = ((UITableViewHeaderFooterView *)view).textLabel;
+        label.textColor = [Theme secondaryText];
+        label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];   // UIKit makes this label itself, so the app font is set here
+    }
 }
 
 - (void)tableView:(UITableView *)tableView willDisplayFooterView:(UIView *)view forSection:(NSInteger)section {
-    if ([view isKindOfClass:[UITableViewHeaderFooterView class]]) ((UITableViewHeaderFooterView *)view).textLabel.textColor = [Theme secondaryText];
+    if ([view isKindOfClass:[UITableViewHeaderFooterView class]]) {
+        UILabel *label = ((UITableViewHeaderFooterView *)view).textLabel;
+        label.textColor = [Theme secondaryText];
+        label.font = [UIFont systemFontOfSize:13];   // UIKit makes this label itself, so the app font is set here
+    }
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {

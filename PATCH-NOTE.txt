@@ -92,3 +92,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 8]
 - Font page scroll, root cause: the preview card height was open-ended (only >= 170), so the layout could not give the scroll view an exact content height. Now the card height is determined (low-priority 170, grows with its bubbles) and the content is tied to the scroll view contentLayoutGuide / frameLayoutGuide, so the page scrolls to the weight slider.
 - Not compiled or run on a device.
+
+[0.8.0 beta 9]
+- The font choice (SF Rounded) and the weight step now apply only to text created by the app itself. The exchanged UIFont methods check the caller (dladdr on the return address): calls from UIKit and other system code (alerts, keyboard, share sheet, menus) get the untouched system font.
+- Table header/footer labels (made by UIKit) get their font set explicitly.
+- Not compiled or run on a device.
