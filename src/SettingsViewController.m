@@ -110,7 +110,6 @@ static UIImage *TickImage(UIColor *color) {
         [content.leadingAnchor constraintEqualToAnchor:scroll.leadingAnchor],
         [content.trailingAnchor constraintEqualToAnchor:scroll.trailingAnchor],
         [content.widthAnchor constraintEqualToAnchor:scroll.widthAnchor],
-        [content.heightAnchor constraintGreaterThanOrEqualToAnchor:scroll.heightAnchor constant:90],   // always a little to scroll, so the weight row can be lifted clear of the bottom edge
     ]];
     self.scrollView = scroll;
 
@@ -369,6 +368,19 @@ static UIImage *TickImage(UIColor *color) {
     ]];
 
     [self applyScale:initialScale];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    // Extra room under the last card (an inset, so no card is stretched to make it): the weight row can be lifted clear of the bottom edge.
+    CGFloat bottom = 90;
+    if (@available(iOS 11.0, *)) bottom += self.view.safeAreaInsets.bottom;
+    UIEdgeInsets inset = self.scrollView.contentInset;
+    if (fabs(inset.bottom - bottom) > 0.5) {
+        inset.bottom = bottom;
+        self.scrollView.contentInset = inset;
+        self.scrollView.scrollIndicatorInsets = inset;
+    }
 }
 
 - (void)updateWeightLabel {
