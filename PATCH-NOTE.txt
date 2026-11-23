@@ -119,3 +119,10 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - New: rows without a card (chat list, model list) dip on the spring when pressed; buttons that cover a big area no longer shrink when pressed; the choice-popup rows no longer flash the accent colour in Material 3.
 - Reduce Motion switches every one of these animations off.
 - Not compiled or run on a device.
+
+[0.8.0 beta 14]
+- Press on a card (list row), rewritten after the video:
+  * the corner morph is no longer a Core Animation path interpolation (it could bend the outline while the spring overshot, and the ripple mask jumped to the final outline at once, so the ripple stuck out of the corners). The corner radii are now numbers solved frame by frame with the exact spring formula (Expressive spatial fast: damping 0.6, stiffness 800), clamped to 0...half height, and the card shape and the ripple mask get the very same path every frame.
+  * the ripple (10 % of the text colour, as in Material 3) grows to the farthest corner in 450 ms with the emphasized decelerate curve and STAYS while the finger is down (before it faded half-way and left a hard edge); it fades in 300 ms when the finger leaves.
+  * the dip (scale 0.975) is kept, on the same spring.
+- Not compiled or run on a device.

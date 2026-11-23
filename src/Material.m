@@ -30,9 +30,27 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
 
 #pragma mark - MaterialCardView
 
+// The press morph is computed here, frame by frame, with the closed-form solution of the spring
+// (damping ratio zeta, stiffness k): the corner radii are numbers, so they can never overshoot into a bent shape,
+// and the shape layer and the ripple mask always get exactly the same path.
+@interface MaterialCardLinkProxy : NSObject
+@property (weak, nonatomic) MaterialCardView *card;
+- (void)tick:(CADisplayLink *)link;
+@end
+
 @interface MaterialCardView ()
 @property (strong, nonatomic) CAShapeLayer *shape;
+@property (strong, nonatomic) CALayer *overlay;          // ripples live here, clipped by `maskShape`
+@property (strong, nonatomic) CAShapeLayer *maskShape;
 @property (assign, nonatomic) BOOL pressedState;
+@property (strong, nonatomic) CADisplayLink *link;
+@property (assign, nonatomic) CFTimeInterval springStart;
+@property (assign, nonatomic) CGFloat curTop, curBottom, fromTop, fromBottom, toTop, toBottom;
+- (void)tickSpring:(CADisplayLink *)link;
+@end
+
+@implementation MaterialCardLinkProxy
+- (void)tick:(CADisplayLink *)link { [self.card tickSpring:link]; }
 @end
 
 @implementation MaterialCardView
@@ -44,89 +62,154 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
         self.userInteractionEnabled = NO;
         _shape = [CAShapeLayer layer];
         [self.layer addSublayer:_shape];
+        _overlay = [CALayer layer];
+        _maskShape = [CAShapeLayer layer];
+        _overlay.mask = _maskShape;
+        [self.layer addSublayer:_overlay];
         _topRadius = 6;
         _bottomRadius = 6;
+        _curTop = 6;
+        _curBottom = 6;
         _cardInsets = UIEdgeInsetsMake(1.5, 0, 1.5, 0);
     }
     return self;
 }
 
-- (UIBezierPath *)pathForPressed:(BOOL)pressed {
-    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.cardInsets);
-    if (pressed) {
-        CGFloat round = MIN(28, rect.size.height / 2.0);   // fully round when pressed
-        return RoundedPath(rect, round, round);
-    }
-    return RoundedPath(rect, self.topRadius, self.bottomRadius);
+- (void)dealloc { [self.link invalidate]; }
+
+- (CGRect)cardRect { return UIEdgeInsetsInsetRect(self.bounds, self.cardInsets); }
+
+// Fully round while pressed (Material 3 Expressive): capped at 28 and at half the height.
+- (CGFloat)fullRadius { return MIN(28, [self cardRect].size.height / 2.0); }
+
+- (void)applyRadii {
+    UIBezierPath *path = RoundedPath([self cardRect], self.curTop, self.curBottom);
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.shape.path = path.CGPath;
+    self.maskShape.path = path.CGPath;   // the ripple is cut by the very same outline
+    [CATransaction commit];
+}
+
+- (void)stopSpring {
+    [self.link invalidate];
+    self.link = nil;
 }
 
 - (void)setPressed:(BOOL)pressed animated:(BOOL)animated {
     if (pressed == self.pressedState) return;
     self.pressedState = pressed;
-    UIBezierPath *target = [self pressedStatePath];
-    if (animated) {
-        id from = (__bridge id)(self.shape.presentationLayer ? ((CAShapeLayer *)self.shape.presentationLayer).path : self.shape.path);
-        CASpringAnimation *morph = [Material spatialSpringForKeyPath:@"path" from:from to:(__bridge id)target.CGPath speed:MaterialMotionFast];
-        [self.shape addAnimation:morph forKey:@"morph"];
+    self.fromTop = self.curTop;
+    self.fromBottom = self.curBottom;
+    self.toTop = pressed ? [self fullRadius] : self.topRadius;
+    self.toBottom = pressed ? [self fullRadius] : self.bottomRadius;
 
+    if (!pressed) [self fadeRipples];
+
+    if (animated && !UIAccessibilityIsReduceMotionEnabled() && self.window) {
+        // the card dips on the spatial spring; the corners are driven below
         double current = [[self.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
         CASpringAnimation *dip = [Material spatialSpringForKeyPath:@"transform.scale" from:@(current > 0.5 ? current : 1) to:@(pressed ? 0.975 : 1.0) speed:MaterialMotionFast];
         [self.layer addAnimation:dip forKey:@"dip"];
+        self.layer.transform = pressed ? CATransform3DMakeScale(0.975, 0.975, 1) : CATransform3DIdentity;
+
+        self.springStart = CACurrentMediaTime();
+        if (!self.link) {
+            MaterialCardLinkProxy *proxy = [[MaterialCardLinkProxy alloc] init];
+            proxy.card = self;
+            self.link = [CADisplayLink displayLinkWithTarget:proxy selector:@selector(tick:)];
+            [self.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+        }
+    } else {
+        [self stopSpring];
+        self.curTop = self.toTop;
+        self.curBottom = self.toBottom;
+        self.layer.transform = pressed ? CATransform3DMakeScale(0.975, 0.975, 1) : CATransform3DIdentity;
+        [self applyRadii];
     }
-    self.shape.path = target.CGPath;
-    self.layer.transform = pressed ? CATransform3DMakeScale(0.975, 0.975, 1) : CATransform3DIdentity;
 }
 
-- (UIBezierPath *)pressedStatePath { return [self pathForPressed:self.pressedState]; }
+// Spatial fast spring of the Expressive scheme: damping ratio 0.6, stiffness 800.
+- (void)tickSpring:(CADisplayLink *)link {
+    const CGFloat zeta = 0.6, omega = sqrt(800.0);
+    CGFloat t = CACurrentMediaTime() - self.springStart;
+    CGFloat settle = 6.9 / (zeta * omega);
+    CGFloat s;
+    if (t >= settle) {
+        s = 1;
+    } else {
+        CGFloat wd = omega * sqrt(1 - zeta * zeta);
+        s = 1 - exp(-zeta * omega * t) * (cos(wd * t) + (zeta * omega / wd) * sin(wd * t));
+    }
+    CGFloat maxRadius = [self cardRect].size.height / 2.0;
+    self.curTop = MAX(0, MIN(maxRadius, self.fromTop + (self.toTop - self.fromTop) * s));
+    self.curBottom = MAX(0, MIN(maxRadius, self.fromBottom + (self.toBottom - self.fromBottom) * s));
+    [self applyRadii];
+    if (t >= settle || self.window == nil) {
+        self.curTop = self.toTop;
+        self.curBottom = self.toBottom;
+        [self applyRadii];
+        [self stopSpring];
+    }
+}
 
+// The ripple (Material 3: 10 % of the text colour) grows from the touch to the farthest corner and stays while the
+// finger is down; it fades when the finger leaves.
 - (void)rippleFrom:(CGPoint)point {
-    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.cardInsets);
-    if (rect.size.width < 2) return;
-    CALayer *host = [CALayer layer];
-    host.frame = self.bounds;
-    CAShapeLayer *clip = [CAShapeLayer layer];
-    clip.frame = self.bounds;
-    clip.path = [self pathForPressed:self.pressedState].CGPath;
-    host.mask = clip;
+    CGRect rect = [self cardRect];
+    if (rect.size.width < 2 || [Material reduceMotion]) return;
+    self.overlay.frame = self.bounds;
+    self.maskShape.frame = self.bounds;
+    [self applyRadii];
     CGFloat maxDistance = 0;
     CGPoint corners[4] = { rect.origin, CGPointMake(CGRectGetMaxX(rect), rect.origin.y), CGPointMake(rect.origin.x, CGRectGetMaxY(rect)), CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect)) };
     for (int i = 0; i < 4; i++) maxDistance = MAX(maxDistance, hypot(corners[i].x - point.x, corners[i].y - point.y));
+    maxDistance += 2;
+
     CAShapeLayer *circle = [CAShapeLayer layer];
-    circle.fillColor = [([Theme darkMode] ? [UIColor whiteColor] : [UIColor blackColor]) colorWithAlphaComponent:0.07].CGColor;   // neutral, no coloured flash
+    circle.name = @"ripple";
+    circle.fillColor = [([Theme darkMode] ? [UIColor whiteColor] : [UIColor blackColor]) colorWithAlphaComponent:0.10].CGColor;   // neutral, no coloured flash
     UIBezierPath *start = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(point.x - 1, point.y - 1, 2, 2)];
     UIBezierPath *end = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(point.x - maxDistance, point.y - maxDistance, maxDistance * 2, maxDistance * 2)];
     circle.path = end.CGPath;
-    [host addSublayer:circle];
-    [self.layer addSublayer:host];
-
+    [self.overlay addSublayer:circle];
     CABasicAnimation *grow = [CABasicAnimation animationWithKeyPath:@"path"];
-    grow.fromValue = (__bridge id)start.CGPath; grow.toValue = (__bridge id)end.CGPath;
-    grow.duration = 0.55;
+    grow.fromValue = (__bridge id)start.CGPath;
+    grow.toValue = (__bridge id)end.CGPath;
+    grow.duration = 0.45;
     grow.timingFunction = [CAMediaTimingFunction functionWithControlPoints:0.05 :0.7 :0.1 :1.0];   // emphasized decelerate
-    CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
-    fade.fromValue = @1; fade.toValue = @0; fade.beginTime = CACurrentMediaTime() + 0.18; fade.fillMode = kCAFillModeBackwards;
-    fade.duration = 0.42;
-    CAAnimationGroup *group = [CAAnimationGroup animation];
-    group.animations = @[grow, fade];
-    group.duration = 0.62;
-    group.removedOnCompletion = YES;
-    [CATransaction begin];
-    [CATransaction setCompletionBlock:^{ [host removeFromSuperlayer]; }];
-    [circle addAnimation:group forKey:@"ripple"];
-    circle.opacity = 0;
-    [CATransaction commit];
+    [circle addAnimation:grow forKey:@"grow"];
+}
+
+- (void)fadeRipples {
+    for (CALayer *layer in [self.overlay.sublayers copy]) {
+        if (![layer.name isEqualToString:@"ripple"] || [layer animationForKey:@"fade"]) continue;
+        CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        fade.fromValue = @(layer.presentationLayer ? layer.presentationLayer.opacity : 1);
+        fade.toValue = @0;
+        fade.duration = 0.30;
+        fade.timingFunction = [CAMediaTimingFunction functionWithControlPoints:0.2 :0 :0 :1];   // standard
+        layer.opacity = 0;
+        [layer addAnimation:fade forKey:@"fade"];
+        __weak CALayer *weakLayer = layer;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.34 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [weakLayer removeFromSuperlayer]; });
+    }
 }
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    CGRect rect = UIEdgeInsetsInsetRect(self.bounds, self.cardInsets);
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     self.shape.frame = self.bounds;
-    self.shape.path = [self pathForPressed:self.pressedState].CGPath;
-    (void)rect;
     self.shape.fillColor = (self.fillColor ?: [Theme surface]).CGColor;
+    self.overlay.frame = self.bounds;
+    self.maskShape.frame = self.bounds;
     [CATransaction commit];
+    if (!self.link) {   // not in the middle of a spring: the radii are the resting ones (or the pressed ones)
+        self.curTop = self.pressedState ? [self fullRadius] : self.topRadius;
+        self.curBottom = self.pressedState ? [self fullRadius] : self.bottomRadius;
+    }
+    [self applyRadii];
 }
 
 @end
