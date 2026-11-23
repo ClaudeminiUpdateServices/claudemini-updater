@@ -634,7 +634,7 @@ static NSString *WallpaperFileKey(NSInteger index) {
     [bar setBackgroundImage:[self imageWithColor:[self background]] forBarMetrics:UIBarMetricsDefault];
     bar.shadowImage = [[UIImage alloc] init];
     bar.titleTextAttributes = @{ NSForegroundColorAttributeName: [self text],
-                                 NSFontAttributeName: [self serifFontOfSize:18] };
+                                 NSFontAttributeName: [self serifFontOfSize:[self materialDesign] ? 16 : 18] };   // smaller bar title in Material 3
 }
 
 #pragma mark - Skin, dark mode, wallpaper

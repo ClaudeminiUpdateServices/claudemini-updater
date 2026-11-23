@@ -867,7 +867,7 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
     }
     MaterialTitleLabel *label = [item.titleView isKindOfClass:[MaterialTitleLabel class]] ? (MaterialTitleLabel *)item.titleView : [[MaterialTitleLabel alloc] init];
     label.text = controller.title;
-    label.font = [UIFont systemFontOfSize:24 weight:UIFontWeightBold];
+    label.font = [UIFont systemFontOfSize:19 weight:UIFontWeightSemibold];   // calm, smaller title next to the back button
     label.textColor = [Theme text];
     label.textAlignment = NSTextAlignmentLeft;
     [label sizeToFit];

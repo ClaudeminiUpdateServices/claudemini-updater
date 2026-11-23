@@ -84,3 +84,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Unfolding a Settings section now animates (rows below slide, new rows spring in one by one). Cause of the missing animation: the row count was read from the table view cache (0 while folded) so it fell back to reloadData; it is now read from the data source.
 - Font page: bottom inset also covers the gap when the content is shorter than the screen, so there is always about 100 pt to scroll.
 - Not compiled or run on a device.
+
+[0.8.0 beta 7]
+- Smaller bar titles next to the back button (Material 3: 24 bold -> 19 semibold left titles, 18 -> 16 centered titles).
+- Not compiled or run on a device.
