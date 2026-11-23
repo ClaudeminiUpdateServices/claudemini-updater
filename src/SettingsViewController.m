@@ -243,7 +243,7 @@ static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
         [fontConstraints addObjectsFromArray:@[
             [row.leadingAnchor constraintEqualToAnchor:fontCard.leadingAnchor],
             [row.trailingAnchor constraintEqualToAnchor:fontCard.trailingAnchor],
-            [row.heightAnchor constraintEqualToConstant:52],
+            [row.heightAnchor constraintEqualToConstant:46],
             [row.topAnchor constraintEqualToAnchor:previousRow ? previousRow.bottomAnchor : fontCard.topAnchor constant:previousRow ? 1.0 / [UIScreen mainScreen].scale : 0],
             [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor constant:16],
             [name.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
@@ -309,12 +309,12 @@ static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
     self.fontChecks = checks;
     [NSLayoutConstraint activateConstraints:fontConstraints];
     [NSLayoutConstraint activateConstraints:@[
-        [fontHeader.topAnchor constraintEqualToAnchor:resetButton.bottomAnchor constant:14],
+        [fontHeader.topAnchor constraintEqualToAnchor:resetButton.bottomAnchor constant:8],
         [fontHeader.leadingAnchor constraintEqualToAnchor:safe0.leadingAnchor constant:32],
         [fontCard.topAnchor constraintEqualToAnchor:fontHeader.bottomAnchor constant:8],
         [fontCard.leadingAnchor constraintEqualToAnchor:safe0.leadingAnchor constant:16],
         [fontCard.trailingAnchor constraintEqualToAnchor:safe0.trailingAnchor constant:-16],
-        [content.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor constant:64],   // room under the card for the home bar
+        [content.bottomAnchor constraintEqualToAnchor:fontCard.bottomAnchor constant:24],   // room under the card for the home bar
     ]];
     [self updateFontChecks];
 
@@ -335,11 +335,11 @@ static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
 
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
-        [self.previewContainer.topAnchor constraintEqualToAnchor:safe.topAnchor constant:16],
+        [self.previewContainer.topAnchor constraintEqualToAnchor:safe.topAnchor constant:12],
         [self.previewContainer.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.previewContainer.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
-        [self.previewContainer.heightAnchor constraintGreaterThanOrEqualToConstant:170],
-        PreferredHeight(self.previewContainer, 170),   // no slack: the card is as tall as its bubbles need (at least 170), so the page height is exact
+        [self.previewContainer.heightAnchor constraintGreaterThanOrEqualToConstant:140],
+        PreferredHeight(self.previewContainer, 140),   // no slack: the card is as tall as its bubbles need (at least 170), so the page height is exact
 
         [self.aiBubble.topAnchor constraintEqualToAnchor:self.previewContainer.topAnchor constant:14],
         [self.aiBubble.leadingAnchor constraintEqualToAnchor:self.previewContainer.leadingAnchor constant:14],
@@ -358,7 +358,7 @@ static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
         self.userLeftPaddingConstraint,
         self.userRightPaddingConstraint,
 
-        [controlCard.topAnchor constraintEqualToAnchor:self.previewContainer.bottomAnchor constant:20],
+        [controlCard.topAnchor constraintEqualToAnchor:self.previewContainer.bottomAnchor constant:12],
         [controlCard.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [controlCard.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
 
@@ -373,7 +373,7 @@ static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
         [self.scaleSlider.trailingAnchor constraintEqualToAnchor:controlCard.trailingAnchor constant:-16],
         [self.scaleSlider.bottomAnchor constraintEqualToAnchor:controlCard.bottomAnchor constant:-14],
 
-        [resetButton.topAnchor constraintEqualToAnchor:controlCard.bottomAnchor constant:10],
+        [resetButton.topAnchor constraintEqualToAnchor:controlCard.bottomAnchor constant:6],
         [resetButton.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor]
     ]];
 
