@@ -375,6 +375,15 @@ static UIImage *TickImage(UIColor *color) {
     // Extra room under the last card (an inset, so no card is stretched to make it): the weight row can be lifted clear of the bottom edge.
     CGFloat bottom = 90;
     if (@available(iOS 11.0, *)) bottom += self.view.safeAreaInsets.bottom;
+    // When the content is shorter than the screen, the inset also covers the gap, so there is always about 100 pt to scroll.
+    CGFloat contentHeight = self.scrollView.contentSize.height;
+    if (contentHeight < 1) {   // the scroll view has not measured its content yet: look again on the next pass
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(dispatch_get_main_queue(), ^{ [weakSelf.view setNeedsLayout]; });
+    } else {
+        CGFloat gap = self.scrollView.bounds.size.height - contentHeight;
+        if (gap + 100 > bottom) bottom = gap + 100;
+    }
     UIEdgeInsets inset = self.scrollView.contentInset;
     if (fabs(inset.bottom - bottom) > 0.5) {
         inset.bottom = bottom;

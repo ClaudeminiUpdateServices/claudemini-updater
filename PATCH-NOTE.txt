@@ -79,3 +79,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 5]
 - Font page: removed the min-height constraint that stretched the preview card when scrolling; the extra scroll room is now a bottom content inset (90 pt + home bar), so nothing is resized.
 - Not compiled or run on a device.
+
+[0.8.0 beta 6]
+- Unfolding a Settings section now animates (rows below slide, new rows spring in one by one). Cause of the missing animation: the row count was read from the table view cache (0 while folded) so it fell back to reloadData; it is now read from the data source.
+- Font page: bottom inset also covers the gap when the content is shorter than the screen, so there is always about 100 pt to scroll.
+- Not compiled or run on a device.

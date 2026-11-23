@@ -816,15 +816,17 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
 + (void)toggleSection:(NSInteger)section collapsed:(NSMutableSet<NSNumber *> *)collapsed inTable:(UITableView *)table header:(UIView *)header {
     NSNumber *key = @(section);
     BOOL willCollapse = ![collapsed containsObject:key];
-    NSInteger count = 0;
-    NSMutableArray<NSIndexPath *> *paths = [NSMutableArray array];
+    // The table view's own numberOfRowsInSection: answers from a cache of the last update (0 while folded),
+    // so the count is asked from the data source directly.
+    NSInteger count;
     if (willCollapse) {
-        count = [table numberOfRowsInSection:section];   // rows that are visible now
+        count = [table.dataSource tableView:table numberOfRowsInSection:section];   // rows on screen now
         [collapsed addObject:key];
     } else {
         [collapsed removeObject:key];
-        count = [table numberOfRowsInSection:section];   // rows that come back
+        count = [table.dataSource tableView:table numberOfRowsInSection:section];   // rows that come back
     }
+    NSMutableArray<NSIndexPath *> *paths = [NSMutableArray array];
     for (NSInteger i = 0; i < count; i++) [paths addObject:[NSIndexPath indexPathForRow:i inSection:section]];
 
     if ([header isKindOfClass:[MaterialSectionHeader class]]) {
@@ -833,10 +835,28 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
         [UIView animateWithDuration:0.5 delay:0 usingSpringWithDamping:0.62 initialSpringVelocity:0.6 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{ chevron.transform = target; } completion:nil];
     }
     if (count == 0 || UIAccessibilityIsReduceMotionEnabled()) { [table reloadData]; return; }
+
+    if (willCollapse) {
+        [table beginUpdates];
+        [table deleteRowsAtIndexPaths:paths withRowAnimation:UITableViewRowAnimationFade];
+        [table endUpdates];
+        return;
+    }
+    // Unfolding: the rows below slide down while the new rows spring in one after another.
     [table beginUpdates];
-    if (willCollapse) [table deleteRowsAtIndexPaths:paths withRowAnimation:UITableViewRowAnimationFade];
-    else [table insertRowsAtIndexPaths:paths withRowAnimation:UITableViewRowAnimationTop];
+    [table insertRowsAtIndexPaths:paths withRowAnimation:UITableViewRowAnimationNone];
     [table endUpdates];
+    NSInteger order = 0;
+    for (NSIndexPath *path in paths) {
+        UITableViewCell *cell = [table cellForRowAtIndexPath:path];
+        if (!cell) continue;
+        cell.alpha = 0;
+        cell.transform = CGAffineTransformConcat(CGAffineTransformMakeScale(0.92, 0.92), CGAffineTransformMakeTranslation(0, -22));
+        [UIView animateWithDuration:0.62 delay:0.05 * order usingSpringWithDamping:0.72 initialSpringVelocity:0.5
+                            options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
+        order++;
+    }
 }
 
 + (void)styleTitleForController:(UIViewController *)controller {
