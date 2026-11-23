@@ -85,7 +85,7 @@ static const CGFloat kCardIcon = 60;
     // iOS style: a wide filled blue button, and a plain text button under it.
     self.primaryButton = [UIButton buttonWithType:UIButtonTypeCustom];
     self.primaryButton.backgroundColor = [Theme accent];
-    self.primaryButton.layer.cornerRadius = MR(12, 26);
+    self.primaryButton.layer.cornerRadius = MR(12, 24);   // half of the 48 pt height
     self.primaryButton.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     self.primaryButton.titleLabel.adjustsFontSizeToFitWidth = YES;
     self.primaryButton.titleLabel.minimumScaleFactor = 0.8;

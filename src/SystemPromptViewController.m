@@ -34,7 +34,7 @@
     [self.importButton setTitle:L(@"instr_import_button") forState:UIControlStateNormal];
     [self.importButton setTitleColor:[Theme accent] forState:UIControlStateNormal];
     self.importButton.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightSemibold];
-    self.importButton.layer.cornerRadius = MR(12, 22);
+    self.importButton.layer.cornerRadius = MR(12, 21);   // half of the 42 pt height
     self.importButton.layer.borderWidth = 1.5;
     self.importButton.layer.borderColor = [Theme accent].CGColor;
     [self.importButton addTarget:self action:@selector(importTapped) forControlEvents:UIControlEventTouchUpInside];

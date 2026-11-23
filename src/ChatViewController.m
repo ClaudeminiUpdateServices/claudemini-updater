@@ -876,7 +876,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     self.inputBox = [[UIView alloc] init];
     self.inputBox.backgroundColor = [Theme surface];
-    self.inputBox.layer.cornerRadius = MR(22, 28);
+    self.inputBox.layer.cornerRadius = 23;   // set again in the layout from the real height
     self.inputBox.layer.borderWidth = 1;
     self.inputBox.layer.borderColor = [Theme border].CGColor;
     [self.inputBar addSubview:self.inputBox];
@@ -1028,6 +1028,8 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.fastButton.frame = CGRectMake(toolWidth * 2, 0, toolWidth, kToolsRowHeight);
     self.mentionButton.frame = CGRectMake(toolWidth * 3, 0, toolWidth, kToolsRowHeight);
     self.inputBox.frame = CGRectMake(12, boxY, boxWidth, boxHeight);
+    // A corner radius larger than half the height bends the ends of the pill into points: never go over it.
+    self.inputBox.layer.cornerRadius = MIN(MR(22, 28), boxHeight / 2.0);
 
     CGFloat centerY = round((boxHeight - 36.0) * 0.5);
     self.attachButton.frame = CGRectMake(5, centerY, 36, 36);
@@ -1464,7 +1466,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self.inputBar viewWithTag:1001].backgroundColor = [Theme border];
     self.inputBox.backgroundColor = [Theme surface];
     self.inputBox.layer.borderColor = [Theme border].CGColor;
-    self.inputBox.layer.cornerRadius = MR(22, 28);   // Material 3 shape; changes at once with the design switch
+    self.inputBox.layer.cornerRadius = MIN(MR(22, 28), MAX(1, self.inputBox.bounds.size.height / 2.0));   // Material 3 shape; changes at once with the design switch
     self.attachButton.tintColor = [Theme secondaryText];
     self.textView.textColor = [Theme text];
     self.textView.tintColor = [Theme accent];

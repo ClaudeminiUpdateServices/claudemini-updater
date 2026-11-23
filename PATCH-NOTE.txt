@@ -105,3 +105,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 11]
 - Gradient wallpaper redone: instead of one linear gradient whose colours and angle rotate (visible bands), it is now an aurora: a base colour with five large soft radial blobs (hues around the accent) that drift along slow elliptical paths and breathe. Soft in light mode, deep in dark mode; still when Reduce Motion is on.
 - Not compiled or run on a device.
+
+[0.8.0 beta 12]
+- Chat input bar: the corner radius (28 in Material 3) was larger than half of the bar height (46), which bent the ends of the pill into points. The radius is now min(28, height / 2), recomputed on every layout, so the bar is a clean pill and also rounds correctly when it grows to several lines.
+- Same fix for the update button (48 pt) and the system prompt import button (42 pt).
+- Not compiled or run on a device.
