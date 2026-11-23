@@ -79,6 +79,13 @@ static UIImage *TickImage(UIColor *color) {
     }];
 }
 
+// A low-priority "height == value": it settles an otherwise open height without fighting the real limits.
+static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
+    NSLayoutConstraint *constraint = [view.heightAnchor constraintEqualToConstant:value];
+    constraint.priority = UILayoutPriorityDefaultLow;
+    return constraint;
+}
+
 @implementation FontScalePreviewViewController
 
 - (void)viewDidLoad {
@@ -105,11 +112,13 @@ static UIImage *TickImage(UIColor *color) {
         [scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
         [scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [content.topAnchor constraintEqualToAnchor:scroll.topAnchor],
-        [content.bottomAnchor constraintEqualToAnchor:scroll.bottomAnchor],
-        [content.leadingAnchor constraintEqualToAnchor:scroll.leadingAnchor],
-        [content.trailingAnchor constraintEqualToAnchor:scroll.trailingAnchor],
-        [content.widthAnchor constraintEqualToAnchor:scroll.widthAnchor],
+        // The content is tied to the scroll view's content layout guide and its width to the frame guide:
+        // this is what lets the scroll view work out its own content size and scroll.
+        [content.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],
+        [content.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor],
+        [content.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor],
+        [content.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
+        [content.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],
     ]];
     self.scrollView = scroll;
 
@@ -330,6 +339,7 @@ static UIImage *TickImage(UIColor *color) {
         [self.previewContainer.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:16],
         [self.previewContainer.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-16],
         [self.previewContainer.heightAnchor constraintGreaterThanOrEqualToConstant:170],
+        PreferredHeight(self.previewContainer, 170),   // no slack: the card is as tall as its bubbles need (at least 170), so the page height is exact
 
         [self.aiBubble.topAnchor constraintEqualToAnchor:self.previewContainer.topAnchor constant:14],
         [self.aiBubble.leadingAnchor constraintEqualToAnchor:self.previewContainer.leadingAnchor constant:14],

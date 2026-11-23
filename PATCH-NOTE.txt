@@ -88,3 +88,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 7]
 - Smaller bar titles next to the back button (Material 3: 24 bold -> 19 semibold left titles, 18 -> 16 centered titles).
 - Not compiled or run on a device.
+
+[0.8.0 beta 8]
+- Font page scroll, root cause: the preview card height was open-ended (only >= 170), so the layout could not give the scroll view an exact content height. Now the card height is determined (low-priority 170, grows with its bubbles) and the content is tied to the scroll view contentLayoutGuide / frameLayoutGuide, so the page scrolls to the weight slider.
+- Not compiled or run on a device.
