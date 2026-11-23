@@ -45,6 +45,20 @@
 - (void)refreshColors;   // read the colours from Theme again and (re)start the movement
 @end
 
+#pragma mark - Motion tokens (Material 3 / Expressive)
+
+typedef NS_ENUM(NSInteger, MaterialMotionSpeed) { MaterialMotionFast, MaterialMotionDefault, MaterialMotionSlow };
+
+// Durations in seconds (Material 3 duration tokens).
+extern const NSTimeInterval MaterialDurationShort1;    // 0.05
+extern const NSTimeInterval MaterialDurationShort2;    // 0.10
+extern const NSTimeInterval MaterialDurationShort3;    // 0.15
+extern const NSTimeInterval MaterialDurationShort4;    // 0.20
+extern const NSTimeInterval MaterialDurationMedium1;   // 0.25
+extern const NSTimeInterval MaterialDurationMedium2;   // 0.30
+extern const NSTimeInterval MaterialDurationMedium4;   // 0.40
+extern const NSTimeInterval MaterialDurationLong2;     // 0.50
+
 #pragma mark - Helpers
 
 @interface Material : NSObject
@@ -56,7 +70,23 @@
 + (CGFloat)classic:(CGFloat)classic material:(CGFloat)material;   // a size that is different in the two designs
 + (void)installTableEffects:(UITableView *)table;                // ripple under the finger on every row (Material only)
 + (void)markTableForEntrance:(UITableView *)table;               // the rows that show up in the next moment spring in one after another
-+ (void)springAnimations:(void (^)(void))animations;             // the spatial spring of Material 3 Expressive
++ (void)springAnimations:(void (^)(void))animations;             // the spatial spring of Material 3 Expressive (default speed)
+// Springs of the Expressive scheme. Spatial = anything that moves, scales or changes shape (damping 0.6/0.8/0.8, stiffness 800/380/200);
+// effects = colour and opacity (damping 1, stiffness 3800/1600/800). The duration is the time the spring needs to settle.
++ (void)animateSpatial:(MaterialMotionSpeed)speed animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)animateSpatial:(MaterialMotionSpeed)speed delay:(NSTimeInterval)delay animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)animateEffects:(MaterialMotionSpeed)speed animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (CASpringAnimation *)spatialSpringForKeyPath:(NSString *)keyPath from:(id)from to:(id)to speed:(MaterialMotionSpeed)speed;
++ (CASpringAnimation *)effectsSpringForKeyPath:(NSString *)keyPath from:(id)from to:(id)to speed:(MaterialMotionSpeed)speed;
+// Easing curves of Material 3: entering things decelerate, leaving things accelerate.
++ (void)animateEmphasizedDecelerate:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)animateEmphasizedAccelerate:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (void)animateStandard:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL finished))completion;
++ (BOOL)reduceMotion;
+// Dialog motion: the card scales up from 0.9 on the spatial spring and fades in on the effects spring; leaving, it shrinks
+// to 0.94 and fades out in 150 ms with the emphasized accelerate curve. Does nothing outside Material 3.
++ (void)presentDialogCard:(UIView *)card;
++ (void)dismissDialogCard:(UIView *)card;
 + (CGFloat)headerHeight;
 + (UIView *)headerViewWithTitle:(NSString *)title collapsed:(BOOL)collapsed collapsible:(BOOL)collapsible tap:(void (^)(void))tap;
 // Folds or unfolds a section with an animation (rows fade out / drop in, the chevron springs round).

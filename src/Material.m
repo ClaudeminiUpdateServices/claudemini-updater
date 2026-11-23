@@ -65,18 +65,12 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
     self.pressedState = pressed;
     UIBezierPath *target = [self pressedStatePath];
     if (animated) {
-        CASpringAnimation *morph = [CASpringAnimation animationWithKeyPath:@"path"];
-        morph.fromValue = (__bridge id)(self.shape.presentationLayer ? ((CAShapeLayer *)self.shape.presentationLayer).path : self.shape.path);
-        morph.toValue = (__bridge id)target.CGPath;
-        morph.mass = 1; morph.stiffness = 420; morph.damping = 24; morph.initialVelocity = 0;
-        morph.duration = morph.settlingDuration;
+        id from = (__bridge id)(self.shape.presentationLayer ? ((CAShapeLayer *)self.shape.presentationLayer).path : self.shape.path);
+        CASpringAnimation *morph = [Material spatialSpringForKeyPath:@"path" from:from to:(__bridge id)target.CGPath speed:MaterialMotionFast];
         [self.shape addAnimation:morph forKey:@"morph"];
 
-        CASpringAnimation *dip = [CASpringAnimation animationWithKeyPath:@"transform.scale"];
-        dip.fromValue = @([[self.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue] ?: 1);
-        dip.toValue = @(pressed ? 0.975 : 1.0);
-        dip.mass = 1; dip.stiffness = 480; dip.damping = 18; dip.initialVelocity = 0;
-        dip.duration = dip.settlingDuration;
+        double current = [[self.layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
+        CASpringAnimation *dip = [Material spatialSpringForKeyPath:@"transform.scale" from:@(current > 0.5 ? current : 1) to:@(pressed ? 0.975 : 1.0) speed:MaterialMotionFast];
         [self.layer addAnimation:dip forKey:@"dip"];
     }
     self.shape.path = target.CGPath;
@@ -171,7 +165,7 @@ static UIBezierPath *RoundedPath(CGRect r, CGFloat top, CGFloat bottom) {
 
 - (void)setOn:(BOOL)on animated:(BOOL)animated {
     _on = on;
-    if (animated) [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{ [self applyState]; } completion:nil];
+    if (animated) [Material animateSpatial:MaterialMotionFast animations:^{ [self applyState]; } completion:nil];
     else [self applyState];
 }
 
@@ -268,7 +262,7 @@ static const CGFloat kSliderTrackHeight = 28;
 
 - (void)setValue:(CGFloat)value animated:(BOOL)animated {
     _value = MAX(0, MIN(1, value));
-    if (animated) [UIView animateWithDuration:0.2 animations:^{ [self placeThumb]; }];
+    if (animated) [Material animateSpatial:MaterialMotionFast animations:^{ [self placeThumb]; } completion:nil];
     else [self placeThumb];
 }
 
@@ -294,10 +288,7 @@ static const CGFloat kSliderTrackHeight = 28;
 // The thumb swells under the finger and springs back (Expressive slider feel).
 - (void)growThumb:(BOOL)grow {
     CGAffineTransform target = grow ? CGAffineTransformMakeScale(1.18, 1.18) : CGAffineTransformIdentity;
-    if (UIAccessibilityIsReduceMotionEnabled()) { self.thumbView.transform = target; return; }
-    [UIView animateWithDuration:0.45 delay:0 usingSpringWithDamping:0.55 initialSpringVelocity:0.8 options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState animations:^{
-        self.thumbView.transform = target;
-    } completion:nil];
+    [Material animateSpatial:MaterialMotionFast animations:^{ self.thumbView.transform = target; } completion:nil];
 }
 
 // A generous touch area: the whole row of the slider, a little beyond its edges.
@@ -665,6 +656,7 @@ static void MascotFill(CGFloat *out, NSInteger index) {
 @interface MaterialPressHandler : NSObject <UIGestureRecognizerDelegate>
 @property (weak, nonatomic) UITableView *table;
 @property (weak, nonatomic) MaterialCardView *pressedCard;
+@property (weak, nonatomic) UIView *pressedPlain;   // content of a row that has no card behind it
 @property (assign, nonatomic) CGPoint start;
 @end
 
@@ -675,6 +667,9 @@ static void MascotFill(CGFloat *out, NSInteger index) {
 - (void)release_ {
     [self.pressedCard setPressed:NO animated:YES];
     self.pressedCard = nil;
+    UIView *plain = self.pressedPlain;
+    self.pressedPlain = nil;
+    if (plain) [Material animateSpatial:MaterialMotionFast animations:^{ plain.transform = CGAffineTransformIdentity; } completion:nil];
 }
 
 - (void)pressed:(UILongPressGestureRecognizer *)gesture {
@@ -689,6 +684,11 @@ static void MascotFill(CGFloat *out, NSInteger index) {
             self.pressedCard = card;
             [card setPressed:YES animated:YES];
             [card rippleFrom:[gesture locationInView:card]];
+        } else if (cell && cell.selectionStyle != UITableViewCellSelectionStyleNone) {
+            // a plain row (chat list, model list): the content dips on the spatial spring
+            UIView *content = cell.contentView;
+            self.pressedPlain = content;
+            [Material animateSpatial:MaterialMotionFast animations:^{ content.transform = CGAffineTransformMakeScale(0.97, 0.97); } completion:nil];
         }
     } else if (gesture.state == UIGestureRecognizerStateChanged) {
         if (hypot(point.x - self.start.x, point.y - self.start.y) > 12) [self release_];   // it became a scroll
@@ -721,14 +721,11 @@ static void MascotFill(CGFloat *out, NSInteger index) {
     if (!changed || ![Theme materialDesign] || UIAccessibilityIsReduceMotionEnabled()) return;
     if (!CATransform3DIsIdentity(self.layer.transform) && ![self.layer animationForKey:@"matpress"]) return;   // a button that is rotated / scaled on purpose keeps its own transform
     if (self.bounds.size.width < 24 || self.bounds.size.height < 24) return;
+    if (self.bounds.size.width > 300 && self.bounds.size.height > 120) return;   // a big area (an overlay that catches taps) should not shrink
     CALayer *layer = self.layer;
     CGFloat current = [[layer.presentationLayer valueForKeyPath:@"transform.scale"] doubleValue];
     if (current < 0.5) current = 1;
-    CASpringAnimation *spring = [CASpringAnimation animationWithKeyPath:@"transform.scale"];
-    spring.fromValue = @(current);
-    spring.toValue = @(highlighted ? 0.93 : 1.0);
-    spring.mass = 1; spring.stiffness = highlighted ? 520 : 380; spring.damping = highlighted ? 26 : 15;
-    spring.duration = spring.settlingDuration;
+    CASpringAnimation *spring = [Material spatialSpringForKeyPath:@"transform.scale" from:@(current) to:@(highlighted ? 0.93 : 1.0) speed:MaterialMotionFast];
     spring.fillMode = kCAFillModeForwards;
     spring.removedOnCompletion = !highlighted;
     [layer removeAnimationForKey:@"matpress"];
@@ -739,9 +736,114 @@ static void MascotFill(CGFloat *out, NSInteger index) {
 
 #pragma mark - Material
 
+#pragma mark - Motion tokens
+
+const NSTimeInterval MaterialDurationShort1 = 0.05;
+const NSTimeInterval MaterialDurationShort2 = 0.10;
+const NSTimeInterval MaterialDurationShort3 = 0.15;
+const NSTimeInterval MaterialDurationShort4 = 0.20;
+const NSTimeInterval MaterialDurationMedium1 = 0.25;
+const NSTimeInterval MaterialDurationMedium2 = 0.30;
+const NSTimeInterval MaterialDurationMedium4 = 0.40;
+const NSTimeInterval MaterialDurationLong2 = 0.50;
+
+typedef struct { CGFloat damping; CGFloat stiffness; } MaterialSpringSpec;
+
+// Material 3 Expressive scheme (damping ratio, stiffness).
+static MaterialSpringSpec SpatialSpec(MaterialMotionSpeed speed) {
+    switch (speed) {
+        case MaterialMotionFast: return (MaterialSpringSpec){ 0.6, 800 };
+        case MaterialMotionSlow: return (MaterialSpringSpec){ 0.8, 200 };
+        default:                 return (MaterialSpringSpec){ 0.8, 380 };
+    }
+}
+static MaterialSpringSpec EffectsSpec(MaterialMotionSpeed speed) {
+    switch (speed) {
+        case MaterialMotionFast: return (MaterialSpringSpec){ 1.0, 3800 };
+        case MaterialMotionSlow: return (MaterialSpringSpec){ 1.0, 800 };
+        default:                 return (MaterialSpringSpec){ 1.0, 1600 };
+    }
+}
+
+// Time a spring needs to come to rest (to 0.1 % of the distance): ln(1000) / (damping ratio * natural frequency).
+static NSTimeInterval SettleTime(MaterialSpringSpec spec) {
+    return 6.9 / (spec.damping * sqrt(spec.stiffness));
+}
+
+static CASpringAnimation *MakeSpring(NSString *keyPath, id from, id to, MaterialSpringSpec spec) {
+    CASpringAnimation *spring = [CASpringAnimation animationWithKeyPath:keyPath];
+    spring.fromValue = from;
+    spring.toValue = to;
+    spring.mass = 1;
+    spring.stiffness = spec.stiffness;
+    spring.damping = 2.0 * spec.damping * sqrt(spec.stiffness);   // c = 2 * zeta * sqrt(k * m)
+    spring.initialVelocity = 0;
+    spring.duration = spring.settlingDuration;
+    return spring;
+}
+
+static void RunSpring(MaterialSpringSpec spec, NSTimeInterval delay, void (^animations)(void), void (^completion)(BOOL)) {
+    if (UIAccessibilityIsReduceMotionEnabled()) {
+        animations();
+        if (completion) completion(YES);
+        return;
+    }
+    [UIView animateWithDuration:SettleTime(spec) delay:delay usingSpringWithDamping:spec.damping initialSpringVelocity:0
+                        options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
+                     animations:animations completion:completion];
+}
+
+static void RunCurve(NSTimeInterval duration, CGPoint c1, CGPoint c2, void (^animations)(void), void (^completion)(BOOL)) {
+    if (UIAccessibilityIsReduceMotionEnabled()) {
+        animations();
+        if (completion) completion(YES);
+        return;
+    }
+    UIViewPropertyAnimator *animator = [[UIViewPropertyAnimator alloc] initWithDuration:duration controlPoint1:c1 controlPoint2:c2 animations:animations];
+    animator.interruptible = NO;
+    if (completion) [animator addCompletion:^(UIViewAnimatingPosition position) { completion(position == UIViewAnimatingPositionEnd); }];
+    [animator startAnimation];
+}
+
+
 @implementation Material
 
 + (BOOL)active { return [Theme materialDesign]; }
+
++ (BOOL)reduceMotion { return UIAccessibilityIsReduceMotionEnabled(); }
+
++ (void)presentDialogCard:(UIView *)card {
+    if (![self active] || [self reduceMotion]) return;
+    card.alpha = 0;
+    card.transform = CGAffineTransformMakeScale(0.9, 0.9);
+    [self animateSpatial:MaterialMotionDefault animations:^{ card.transform = CGAffineTransformIdentity; } completion:nil];
+    [self animateEffects:MaterialMotionDefault animations:^{ card.alpha = 1; } completion:nil];
+}
+
++ (void)dismissDialogCard:(UIView *)card {
+    if (![self active] || [self reduceMotion]) return;
+    [self animateEmphasizedAccelerate:MaterialDurationShort3 animations:^{
+        card.alpha = 0;
+        card.transform = CGAffineTransformMakeScale(0.94, 0.94);
+    } completion:nil];
+}
+
++ (void)animateSpatial:(MaterialMotionSpeed)speed animations:(void (^)(void))animations completion:(void (^)(BOOL))completion { RunSpring(SpatialSpec(speed), 0, animations, completion); }
++ (void)animateSpatial:(MaterialMotionSpeed)speed delay:(NSTimeInterval)delay animations:(void (^)(void))animations completion:(void (^)(BOOL))completion { RunSpring(SpatialSpec(speed), delay, animations, completion); }
++ (void)animateEffects:(MaterialMotionSpeed)speed animations:(void (^)(void))animations completion:(void (^)(BOOL))completion { RunSpring(EffectsSpec(speed), 0, animations, completion); }
++ (CASpringAnimation *)spatialSpringForKeyPath:(NSString *)keyPath from:(id)from to:(id)to speed:(MaterialMotionSpeed)speed { return MakeSpring(keyPath, from, to, SpatialSpec(speed)); }
++ (CASpringAnimation *)effectsSpringForKeyPath:(NSString *)keyPath from:(id)from to:(id)to speed:(MaterialMotionSpeed)speed { return MakeSpring(keyPath, from, to, EffectsSpec(speed)); }
+
+// emphasized decelerate = cubic-bezier(0.05, 0.7, 0.1, 1.0); emphasized accelerate = (0.3, 0, 0.8, 0.15); standard = (0.2, 0, 0, 1.0)
++ (void)animateEmphasizedDecelerate:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL))completion {
+    RunCurve(duration, CGPointMake(0.05, 0.7), CGPointMake(0.1, 1.0), animations, completion);
+}
++ (void)animateEmphasizedAccelerate:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL))completion {
+    RunCurve(duration, CGPointMake(0.3, 0.0), CGPointMake(0.8, 0.15), animations, completion);
+}
++ (void)animateStandard:(NSTimeInterval)duration animations:(void (^)(void))animations completion:(void (^)(BOOL))completion {
+    RunCurve(duration, CGPointMake(0.2, 0.0), CGPointMake(0.0, 1.0), animations, completion);
+}
 
 + (UITableViewCellStyle)cellStyle:(UITableViewCellStyle)classic {
     return [self active] ? UITableViewCellStyleSubtitle : classic;
@@ -816,12 +918,7 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
 
 + (CGFloat)classic:(CGFloat)classic material:(CGFloat)material { return [self active] ? material : classic; }
 
-+ (void)springAnimations:(void (^)(void))animations {
-    if (UIAccessibilityIsReduceMotionEnabled()) { animations(); return; }
-    [UIView animateWithDuration:0.55 delay:0 usingSpringWithDamping:0.78 initialSpringVelocity:0.5
-                        options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
-                     animations:animations completion:nil];
-}
++ (void)springAnimations:(void (^)(void))animations { [self animateSpatial:MaterialMotionDefault animations:animations completion:nil]; }
 
 // The rows that appear in the next moment spring up one after another (first screen opening, or after a reload).
 + (void)markTableForEntrance:(UITableView *)table {
@@ -841,9 +938,7 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
     if (order > 14) return;
     cell.alpha = 0;
     cell.transform = CGAffineTransformConcat(CGAffineTransformMakeScale(0.94, 0.94), CGAffineTransformMakeTranslation(0, 26));
-    [UIView animateWithDuration:0.62 delay:0.035 * order usingSpringWithDamping:0.74 initialSpringVelocity:0.4
-                        options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
-                     animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
+    [self animateSpatial:MaterialMotionDefault delay:0.035 * order animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
 }
 
 + (void)installTableEffects:(UITableView *)table {
@@ -895,7 +990,7 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
     if ([header isKindOfClass:[MaterialSectionHeader class]]) {
         UIImageView *chevron = ((MaterialSectionHeader *)header).chevron;
         CGAffineTransform target = CGAffineTransformMakeRotation(willCollapse ? 0 : M_PI_2);
-        [UIView animateWithDuration:0.5 delay:0 usingSpringWithDamping:0.62 initialSpringVelocity:0.6 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{ chevron.transform = target; } completion:nil];
+        [Material animateSpatial:MaterialMotionFast animations:^{ chevron.transform = target; } completion:nil];
     }
     if (count == 0 || UIAccessibilityIsReduceMotionEnabled()) { [table reloadData]; return; }
 
@@ -915,9 +1010,7 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
         if (!cell) continue;
         cell.alpha = 0;
         cell.transform = CGAffineTransformConcat(CGAffineTransformMakeScale(0.92, 0.92), CGAffineTransformMakeTranslation(0, -22));
-        [UIView animateWithDuration:0.62 delay:0.05 * order usingSpringWithDamping:0.72 initialSpringVelocity:0.5
-                            options:UIViewAnimationOptionAllowUserInteraction | UIViewAnimationOptionBeginFromCurrentState
-                         animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
+        [Material animateSpatial:MaterialMotionDefault delay:0.05 * order animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
         order++;
     }
 }

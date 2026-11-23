@@ -317,13 +317,19 @@ static const CGFloat kButtonHeight = 48;
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    if ([Material active]) { [Material presentDialogCard:self.card]; return; }
     self.card.transform = CGAffineTransformMakeScale(0.94, 0.94);
     [UIView animateWithDuration:0.28 delay:0 usingSpringWithDamping:0.85 initialSpringVelocity:0 options:0 animations:^{
         self.card.transform = CGAffineTransformIdentity;
     } completion:nil];
 }
 
-- (void)rowDown:(UIButton *)row { row.backgroundColor = [[Theme accent] colorWithAlphaComponent:0.14]; }
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [Material dismissDialogCard:self.card];
+}
+
+- (void)rowDown:(UIButton *)row { if (![Material active]) row.backgroundColor = [[Theme accent] colorWithAlphaComponent:0.14]; }   // Material 3: the spring dip and ripple show the press, no colour flash
 - (void)rowUp:(UIButton *)row { row.backgroundColor = [Theme surface]; }
 
 - (void)optionTapped:(UIButton *)row {

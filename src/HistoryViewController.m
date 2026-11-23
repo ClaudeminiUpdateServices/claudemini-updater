@@ -32,6 +32,7 @@
     self.navigationItem.leftBarButtonItem = back;
 
     self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStylePlain];
+    [Material installTableEffects:self.tableView];   // Material 3 press feedback (does nothing in the Classic design)
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.tableView.dataSource = self;
     self.tableView.delegate = self;

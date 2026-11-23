@@ -146,10 +146,16 @@ static NSString *SizeText(long long bytes) {
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+    if ([Material active]) { [Material presentDialogCard:self.card]; return; }
     self.card.transform = CGAffineTransformMakeScale(0.94, 0.94);
     [UIView animateWithDuration:0.28 delay:0 usingSpringWithDamping:0.85 initialSpringVelocity:0 options:0 animations:^{
         self.card.transform = CGAffineTransformIdentity;
     } completion:nil];
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [Material dismissDialogCard:self.card];
 }
 
 #pragma mark - State

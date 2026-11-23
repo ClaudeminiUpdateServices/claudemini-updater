@@ -110,3 +110,12 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Chat input bar: the corner radius (28 in Material 3) was larger than half of the bar height (46), which bent the ends of the pill into points. The radius is now min(28, height / 2), recomputed on every layout, so the bar is a clean pill and also rounds correctly when it grows to several lines.
 - Same fix for the update button (48 pt) and the system prompt import button (42 pt).
 - Not compiled or run on a device.
+
+[0.8.0 beta 13]
+- One set of Material 3 motion tokens in Material.h/.m: duration tokens (50..500 ms), easing curves (emphasized decelerate 0.05/0.7/0.1/1, emphasized accelerate 0.3/0/0.8/0.15, standard 0.2/0/0/1) and the Expressive springs (spatial fast 0.6/800, default 0.8/380, slow 0.8/200; effects 1.0/3800, 1.0/1600, 1.0/800), converted to CASpringAnimation (damping = 2 * zeta * sqrt(k)) and UIView springs whose duration is the settling time. Sources: material-components-android Motion.md, Compose MotionScheme and the open-source ports; the two sources disagree on some transition lengths, the choice is 400 ms enter / 200 ms exit.
+- Every existing Material animation now uses these tokens (card press, button press, switch, slider, thumb, section fold/unfold, row entrance).
+- New: dialogs (confirm, update, model, choice) grow from 0.9 on the spatial spring, fade in on the effects spring and shrink + fade out in 150 ms; the tool menu grows from 0.85; the history drawer opens with emphasized decelerate (400 ms) and closes with emphasized accelerate (250 ms); layout changes and the first chat reveal use the same tokens.
+- New: screen changes use the Material 3 shared-axis transition (30 pt slide + fade; 400 ms in, 200 ms out). An edge swipe back keeps UIKit's own interactive pop.
+- New: rows without a card (chat list, model list) dip on the spring when pressed; buttons that cover a big area no longer shrink when pressed; the choice-popup rows no longer flash the accent colour in Material 3.
+- Reduce Motion switches every one of these animations off.
+- Not compiled or run on a device.

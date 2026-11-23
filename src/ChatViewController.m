@@ -405,10 +405,12 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 // Rotation, another layout chosen in Settings, or the left pane folded away: lay everything out again, smoothly.
 - (void)layoutChanged {
     [self.view endEditing:YES];
-    [UIView animateWithDuration:0.28 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{
+    void (^relayout)(void) = ^{
         [self.view setNeedsLayout];
         [self.view layoutIfNeeded];
-    } completion:nil];
+    };
+    if ([Material active]) [Material animateEmphasizedDecelerate:MaterialDurationMedium4 animations:relayout completion:nil];
+    else [UIView animateWithDuration:0.28 delay:0 options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:relayout completion:nil];
 }
 
 // The pinned list shows the open chat highlighted: refresh it when the chats change.
@@ -453,6 +455,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self refreshHistorySearchPlaceholder];
 
     self.historyTableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    [Material installTableEffects:self.historyTableView];   // Material 3 press feedback (does nothing in the Classic design)
     self.historyTableView.backgroundColor = [UIColor clearColor];
     self.historyTableView.separatorColor = [Theme border];
     self.historyTableView.separatorInset = UIEdgeInsetsMake(0, 16, 0, 0);
@@ -646,15 +649,20 @@ static const CGFloat kDrawerWidthRatio = 0.62;
         self.historyDrawerView.frame = CGRectMake(-drawerW, 0, drawerW, h);
         [self layoutHistoryDrawerSubviews];
     }
-    [UIView animateWithDuration:0.36 delay:0 usingSpringWithDamping:0.95 initialSpringVelocity:0.1
-                        options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
-                     animations:^{
+    void (^openAnimations)(void) = ^{
         self.historyDrawerView.frame = CGRectMake(0, 0, drawerW, h);
         self.chatStageView.center = [self chatStageCenterOpen:YES];
         self.chatBlurView.effect = [self chatBlurEffect];   // the chat fades into a blur
-    } completion:^(BOOL finished) {
-        self.historyDrawerAnimating = NO;
-    }];
+    };
+    void (^openDone)(BOOL) = ^(BOOL finished) { self.historyDrawerAnimating = NO; };
+    if ([Material active]) {
+        // Material 3: the drawer enters with the emphasized decelerate curve (400 ms)
+        [Material animateEmphasizedDecelerate:MaterialDurationMedium4 animations:openAnimations completion:openDone];
+    } else {
+        [UIView animateWithDuration:0.36 delay:0 usingSpringWithDamping:0.95 initialSpringVelocity:0.1
+                            options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
+                         animations:openAnimations completion:openDone];
+    }
 }
 
 - (void)closeHistoryDrawer {
@@ -666,16 +674,23 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     CGFloat h = self.view.bounds.size.height;
     CGFloat drawerW = [self historyDrawerWidth];
-    [UIView animateWithDuration:0.30 delay:0 options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:^{
+    void (^closeAnimations)(void) = ^{
         self.historyDrawerView.frame = CGRectMake(-drawerW, 0, drawerW, h);
         self.chatStageView.center = [self chatStageCenterOpen:NO];
         self.chatBlurView.effect = nil;
-    } completion:^(BOOL finished) {
+    };
+    void (^closeDone)(BOOL) = ^(BOOL finished) {
         if (self.historyDrawerOpen) return;   // opened again while closing
         self.historyDrawerAnimating = NO;
         self.historyDrawerView.hidden = YES;
         self.chatRightOverlayButton.hidden = YES;
-    }];
+    };
+    if ([Material active]) {
+        // Material 3: leaving is quicker than entering (emphasized accelerate, 250 ms)
+        [Material animateEmphasizedAccelerate:MaterialDurationMedium1 animations:closeAnimations completion:closeDone];
+    } else {
+        [UIView animateWithDuration:0.30 delay:0 options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction animations:closeAnimations completion:closeDone];
+    }
 }
 
 - (UIViewController *)topPresentedController {
@@ -1591,6 +1606,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 // The page stays invisible until it has drawn once, so the greeting fades in instead of popping in half-built.
 - (void)revealWebView {
     if (self.webView.alpha >= 1.0) return;
+    if ([Material active]) { [Material animateEffects:MaterialMotionSlow animations:^{ self.webView.alpha = 1.0; } completion:nil]; return; }
     [UIView animateWithDuration:0.22 delay:0 options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionAllowUserInteraction animations:^{
         self.webView.alpha = 1.0;
     } completion:nil];
@@ -2226,15 +2242,18 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
 - (void)dismissToolMenu {
     if (!self.toolMenuOverlay) return;
-    [UIView animateWithDuration:0.16 animations:^{
-        self.toolMenuCard.alpha = 0.0;
-        self.toolMenuCard.transform = CGAffineTransformMakeTranslation(0, 12);
-        self.toolMenuOverlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.0];
-    } completion:^(BOOL finished) {
-        [self.toolMenuOverlay removeFromSuperview];
-        self.toolMenuOverlay = nil;
-        self.toolMenuCard = nil;
-    }];
+    UIView *overlay = self.toolMenuOverlay;
+    UIView *card = self.toolMenuCard;
+    self.toolMenuOverlay = nil;   // a second tap while it leaves must not start a second dismissal
+    self.toolMenuCard = nil;
+    void (^leave)(void) = ^{
+        card.alpha = 0.0;
+        card.transform = [Material active] ? CGAffineTransformConcat(CGAffineTransformMakeScale(0.92, 0.92), CGAffineTransformMakeTranslation(0, 8)) : CGAffineTransformMakeTranslation(0, 12);
+        overlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.0];
+    };
+    void (^gone)(BOOL) = ^(BOOL finished) { [overlay removeFromSuperview]; };
+    if ([Material active]) [Material animateEmphasizedAccelerate:MaterialDurationShort3 animations:leave completion:gone];
+    else [UIView animateWithDuration:0.16 animations:leave completion:gone];
 }
 
 - (void)toolMenuItemTapped:(UIControl *)sender {
@@ -2394,6 +2413,19 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self.toolMenuCard addSubview:cancel];
 
     [self.view addSubview:self.toolMenuOverlay];
+    UIView *menuCard = self.toolMenuCard;
+    UIView *menuOverlay = self.toolMenuOverlay;
+    if ([Material active] && ![Material reduceMotion]) {
+        // Material 3 menu: grows from 0.85 on the spatial spring while it fades in on the effects spring
+        menuCard.alpha = 0.0;
+        menuCard.transform = CGAffineTransformConcat(CGAffineTransformMakeScale(0.85, 0.85), CGAffineTransformMakeTranslation(0, 12));
+        [Material animateSpatial:MaterialMotionDefault animations:^{ menuCard.transform = CGAffineTransformIdentity; } completion:nil];
+        [Material animateEffects:MaterialMotionDefault animations:^{
+            menuCard.alpha = 1.0;
+            menuOverlay.backgroundColor = [UIColor colorWithWhite:0 alpha:0.20];
+        } completion:nil];
+        return;
+    }
     self.toolMenuCard.transform = CGAffineTransformMakeTranslation(0, 12);
     self.toolMenuCard.alpha = 0.0;
     [UIView animateWithDuration:0.20 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
