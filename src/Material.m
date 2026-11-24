@@ -1048,7 +1048,10 @@ static const void *kStretchKey = &kStretchKey;
                 self.edge = 0;
                 [self applyPull:0 edge:0];
             }
-            self.lastTranslation = translation;
+            // The pan only begins after a few points of movement. At an end those points already are a pull, so they
+            // count from the first one (no dead zone): the content starts to stretch the moment the finger moves.
+            BOOL atTop = sv.contentOffset.y <= [self topOffset] + 0.5, atBottom = sv.contentOffset.y >= [self bottomOffset] - 0.5;
+            self.lastTranslation = (atTop || atBottom) ? 0 : translation;
             break;
         }
         case UIGestureRecognizerStateChanged: {
@@ -1080,8 +1083,15 @@ static const void *kStretchKey = &kStretchKey;
             break;
         }
         default: {   // ended, cancelled, failed
+            CGFloat flick = [gesture velocityInView:space].y;
+            CGFloat top = [self topOffset], bottom = [self bottomOffset], y = sv.contentOffset.y;
+            BOOL flickedIntoTop = y <= top + 0.5 && flick > 250;
+            BOOL flickedIntoBottom = y >= bottom - 0.5 && flick < -250;
             if (self.pull > 0) {
                 [self releaseStretch];
+            } else if (flickedIntoTop || flickedIntoBottom) {
+                // a quick flick at an end that has no room to scroll: the content swells with the speed, then springs back
+                [self absorbSpeed:fabs(flick) edge:flickedIntoTop ? 1 : -1];
             } else {
                 // a fling that reaches an end is followed to see how fast it arrives
                 __weak typeof(self) weak = self;

@@ -166,3 +166,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
   * the sent text lifts off the box and fades (0.42 s).
   The Classic design keeps the old box.
 - Not compiled or run on a device.
+
+[0.8.0 beta 19]
+- Stretch overscroll reacts at once: the few points of movement before the page starts to scroll now count as part of the pull when the page is at an end (no dead zone), so the content starts to stretch the moment the finger moves. A quick flick at an end that has no room to scroll (flick down at the top, up at the bottom) swells the content with the flick speed (like a fling that runs into the end), then springs back.
+- Not compiled or run on a device.
