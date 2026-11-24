@@ -154,3 +154,15 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
   * Done on the layer (sublayerTransform about the visible edge), with no delegate: cells, headers and the account card stretch together. Off (the normal rubber band comes back) in the Classic design and with Reduce Motion.
 - The chat page itself (a web view with its own scrolling) keeps the system overscroll.
 - Not compiled or run on a device.
+
+[0.8.0 beta 18]
+- Material 3 delete dialog (DeleteConfirmViewController): a card with a trash can drawn in code. Press Delete: the lid flips open (-38 deg), a sheet drops into the can, the lid snaps shut with a little overshoot, the can squashes and settles (1.25 s film, one haptic when the lid lands), then the card leaves and the action runs. Cancel, a tap outside, and Reduce Motion (no film, 0.2 s) are handled. In the Classic design the old choice pop-up is used.
+  Every place that deletes has its own words: "Xóa API key Gemini/Claude?" (key screen), "Xóa cuộc trò chuyện?" with the conversation title (swipe in History; it had no confirmation before), "Xóa toàn bộ lịch sử?" (Settings).
+- "Thinking" line in the chat (web): a light sweeps over the words and the star turns and breathes; tap to read the thoughts as they stream in; when the answer starts it folds away and settles into "Đã suy nghĩ N giây" (tap again to read the thoughts); an instant answer shows nothing. Real thoughts: Gemini (includeThoughts) and Claude (thinking deltas, summarized) now stream their reasoning summary to the page (onThought). Reduce Motion: no sweep or spin.
+- Material 3 message box: the text on top and growing upward line by line (standard easing), and under it a row with the attach button (outlined circle), the model pill, the mic and the send button.
+  * the model pill: tapping opens the model list; when the model changes the old name rolls up and out while the new one rolls in from below and the pill resizes on the spatial spring (the model button of the top bar is hidden in Material, as the model is now in the box);
+  * the send button: a drawn arrow that wakes up (bump) when there is something to send; while a reply is written the arrow flies up and shrinks and a stop square turns in; press dips it;
+  * a thin conic light (accent) runs round the box while a reply is written (still, soft border under Reduce Motion);
+  * the sent text lifts off the box and fades (0.42 s).
+  The Classic design keeps the old box.
+- Not compiled or run on a device.

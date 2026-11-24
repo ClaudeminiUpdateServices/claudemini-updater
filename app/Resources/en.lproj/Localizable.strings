@@ -384,3 +384,17 @@
 "google_checking" = "Checking…";
 "google_use_key" = "Use a Gemini API key instead";
 "google_signed_out" = "Signed out of Google.";
+
+/* Delete dialogs (each place that deletes has its own words) */
+"delete_dialog_key_title" = "Delete the %@ API key?";
+"delete_dialog_key_msg" = "The %@ key will be removed from this device. You will need to enter it again to keep using it.";
+"delete_dialog_chat_title" = "Delete this conversation?";
+"delete_dialog_chat_msg" = "“%@” and its attachments will be removed. This can’t be undone.";
+"delete_dialog_chat_untitled" = "Untitled conversation";
+"delete_dialog_all_title" = "Delete all history?";
+"delete_dialog_all_msg" = "Every conversation and attachment on this device will be removed for good. This can’t be undone.";
+"deleted_announce" = "Deleted";
+
+/* Thinking line of the chat */
+"thought_for" = "Thought for %d s";
+"thought_short" = "Thought";

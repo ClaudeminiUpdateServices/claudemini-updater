@@ -5,6 +5,7 @@
 #import "KeyStore.h"
 #import "GoogleAuth.h"
 #import "GoogleAccountViewController.h"
+#import "DeleteConfirmViewController.h"
 #import "AppSettings.h"
 #import "ConversationStore.h"
 #import "RootViewController.h"
@@ -1395,10 +1396,12 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 #pragma mark - History
 
 - (void)confirmClearHistory {
-    ChoicePopupViewController *alert = [ChoicePopupViewController alertWithTitle:L(@"clear_history_confirm_title") message:L(@"clear_history_confirm_msg")];
-    [alert addAction:[ChoiceAction actionWithTitle:L(@"cancel") style:UIAlertActionStyleCancel handler:nil]];
     __weak typeof(self) weakSelf = self;
-    [alert addAction:[ChoiceAction actionWithTitle:L(@"delete") style:UIAlertActionStyleDestructive handler:^(id action) {
+    [DeleteConfirmViewController presentFrom:self
+                                       title:L(@"delete_dialog_all_title")
+                                     message:L(@"delete_dialog_all_msg")
+                                confirmTitle:L(@"delete")
+                                   onConfirm:^{
         [ConversationStore deleteAll];
         [[NSNotificationCenter defaultCenter] postNotificationName:kNotifHistoryCleared object:nil];
         SettingsViewController *me = weakSelf;
@@ -1406,8 +1409,7 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
         ChoicePopupViewController *done = [ChoicePopupViewController alertWithTitle:nil message:L(@"history_cleared")];
         [done addAction:[ChoiceAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [done presentFromViewController:me];
-    }]];
-    [alert presentFromViewController:self];
+    }];
 }
 
 @end

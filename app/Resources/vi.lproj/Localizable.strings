@@ -385,3 +385,17 @@
 "google_checking" = "Đang kiểm tra…";
 "google_use_key" = "Dùng API key Gemini thay thế";
 "google_signed_out" = "Đã đăng xuất khỏi Google.";
+
+/* Delete dialogs (each place that deletes has its own words) */
+"delete_dialog_key_title" = "Xóa API key %@?";
+"delete_dialog_key_msg" = "Key %@ sẽ bị xóa khỏi máy này. Bạn cần nhập lại key để tiếp tục dùng.";
+"delete_dialog_chat_title" = "Xóa cuộc trò chuyện?";
+"delete_dialog_chat_msg" = "“%@” và các tệp đính kèm của nó sẽ bị xóa. Không thể hoàn tác.";
+"delete_dialog_chat_untitled" = "Cuộc trò chuyện chưa đặt tên";
+"delete_dialog_all_title" = "Xóa toàn bộ lịch sử?";
+"delete_dialog_all_msg" = "Mọi cuộc trò chuyện và tệp đính kèm trên máy này sẽ bị xóa vĩnh viễn. Không thể hoàn tác.";
+"deleted_announce" = "Đã xóa";
+
+/* Thinking line of the chat */
+"thought_for" = "Đã suy nghĩ %d giây";
+"thought_short" = "Đã suy nghĩ";
