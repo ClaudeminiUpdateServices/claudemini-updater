@@ -46,6 +46,7 @@ typedef NS_ENUM(NSInteger, StatusKind) {
 
     self.scrollView = [[UIScrollView alloc] init];
     self.scrollView.alwaysBounceVertical = YES;
+    [Material installStretchOnScrollView:self.scrollView];   // Material 3 stretch at the ends
     self.scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
     if (@available(iOS 11.0, *)) {
         self.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;

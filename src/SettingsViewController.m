@@ -101,6 +101,7 @@ static NSLayoutConstraint *PreferredHeight(UIView *view, CGFloat value) {
     UIScrollView *scroll = [[UIScrollView alloc] init];
     scroll.translatesAutoresizingMaskIntoConstraints = NO;
     scroll.alwaysBounceVertical = YES;
+    [Material installStretchOnScrollView:scroll];   // Material 3 stretch at the ends
     scroll.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     scroll.showsVerticalScrollIndicator = NO;
     scroll.delaysContentTouches = NO;

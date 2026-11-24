@@ -925,6 +925,239 @@ static void RunCurve(NSTimeInterval duration, CGPoint c1, CGPoint c2, void (^ani
 }
 
 
+#pragma mark - Stretch overscroll (Material 3: the content stretches at the ends instead of sliding away)
+
+// Android 12+ style: at the top or the bottom the content is not pulled away (the rubber band is switched off); it grows
+// along the scroll axis, anchored on the edge it is pulled from, with a resistance that grows with the distance, and
+// springs back (critically damped, no overshoot) when the finger lifts. A fling that runs into an end makes the content
+// stretch by an amount that follows the speed, then spring back. Done with the scroll view layer's sublayerTransform,
+// so cells, headers and any other content are stretched together, and with no delegate or subclass.
+
+static const CGFloat kStretchMax = 0.28;           // the largest growth (28 %) the content can reach
+static const CGFloat kStretchReach = 2.2;          // how fast it approaches that (tanh of reach * pull / height)
+static const void *kStretchKey = &kStretchKey;
+
+@interface MaterialStretch : NSObject
+@property (weak, nonatomic) UIScrollView *scrollView;
+@property (assign, nonatomic) CGFloat pull;           // finger distance past the edge, in points
+@property (assign, nonatomic) NSInteger edge;         // +1 stretched from the top, -1 from the bottom, 0 none
+@property (assign, nonatomic) CGFloat lastTranslation;
+@property (assign, nonatomic) NSUInteger generation;
+@property (strong, nonatomic) CADisplayLink *link;
+@property (assign, nonatomic) CGFloat lastY;
+@property (assign, nonatomic) CGFloat velocity;
+@property (assign, nonatomic) CFTimeInterval lastTime;
+@end
+
+@implementation MaterialStretch
+
+- (BOOL)enabled { return [Material active] && ![Material reduceMotion]; }
+
+// The rubber band is replaced by the stretch only while it is on (Material 3 design, Reduce Motion off).
+- (void)syncBounces {
+    UIScrollView *sv = self.scrollView;
+    BOOL wanted = ![self enabled];
+    if (sv && sv.bounces != wanted) sv.bounces = wanted;
+}
+
+- (CGFloat)topOffset { return -self.scrollView.adjustedContentInset.top; }
+
+- (CGFloat)bottomOffset {
+    UIScrollView *sv = self.scrollView;
+    return MAX([self topOffset], sv.contentSize.height + sv.adjustedContentInset.bottom - sv.bounds.size.height);
+}
+
+- (CGFloat)viewport {
+    UIScrollView *sv = self.scrollView;
+    UIEdgeInsets inset = sv.adjustedContentInset;
+    return MAX(1, sv.bounds.size.height - inset.top - inset.bottom);
+}
+
+- (CGFloat)extraForPull:(CGFloat)pull { return kStretchMax * tanh(kStretchReach * MAX(0, pull) / [self viewport]); }
+
+- (CGFloat)pullForExtra:(CGFloat)extra {
+    CGFloat ratio = MIN(MAX(extra / kStretchMax, 0), 0.98);
+    return [self viewport] * atanh(ratio) / kStretchReach;
+}
+
+// scale about the edge: p' = A + S(p - A) + (1 - s)(P - A), A = middle of the visible bounds (the layer's anchor), P = the edge
+- (CATransform3D)transformForPull:(CGFloat)pull edge:(NSInteger)edge {
+    UIScrollView *sv = self.scrollView;
+    if (!sv || pull <= 0 || edge == 0) return CATransform3DIdentity;
+    CGFloat s = 1 + [self extraForPull:pull];
+    CGRect bounds = sv.bounds;
+    UIEdgeInsets inset = sv.adjustedContentInset;
+    CGFloat anchor = bounds.origin.y + bounds.size.height / 2;
+    CGFloat edgeY = edge > 0 ? bounds.origin.y + inset.top : bounds.origin.y + bounds.size.height - inset.bottom;
+    CATransform3D scale = CATransform3DMakeScale(1, s, 1);
+    CATransform3D shift = CATransform3DMakeTranslation(0, (1 - s) * (edgeY - anchor), 0);
+    return CATransform3DConcat(scale, shift);
+}
+
+- (void)applyPull:(CGFloat)pull edge:(NSInteger)edge {
+    UIScrollView *sv = self.scrollView;
+    if (!sv) return;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    sv.layer.sublayerTransform = [self transformForPull:pull edge:edge];
+    [CATransaction commit];
+}
+
+// Springs the content back to its size: critically damped, so it never shrinks below its natural size.
+- (void)releaseStretch {
+    UIScrollView *sv = self.scrollView;
+    if (!sv) return;
+    CATransform3D from = sv.layer.sublayerTransform;
+    self.pull = 0;
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    sv.layer.sublayerTransform = CATransform3DIdentity;
+    [CATransaction commit];
+    if (from.m22 <= 1.0005) return;
+    CASpringAnimation *spring = [CASpringAnimation animationWithKeyPath:@"sublayerTransform"];
+    spring.fromValue = [NSValue valueWithCATransform3D:from];
+    spring.toValue = [NSValue valueWithCATransform3D:CATransform3DIdentity];
+    spring.mass = 1;
+    spring.stiffness = 300;
+    spring.damping = 2 * sqrt(300.0);   // damping ratio 1
+    spring.initialVelocity = 0;
+    spring.duration = spring.settlingDuration;
+    [sv.layer addAnimation:spring forKey:@"stretch"];
+}
+
+- (void)pan:(UIPanGestureRecognizer *)gesture {
+    UIScrollView *sv = self.scrollView;
+    if (!sv) return;
+    [self syncBounces];
+    if (![self enabled]) return;
+    UIView *space = sv.superview ?: sv;
+    CGFloat translation = [gesture translationInView:space].y;
+    switch (gesture.state) {
+        case UIGestureRecognizerStateBegan: {
+            self.generation++;
+            [self stopLink];
+            // the finger caught a stretch that is still springing back: carry on from where it is on screen
+            CALayer *shown = sv.layer.presentationLayer ?: sv.layer;
+            CGFloat extra = shown.sublayerTransform.m22 - 1;
+            [sv.layer removeAnimationForKey:@"stretch"];
+            if (extra > 0.002 && self.edge != 0) {
+                self.pull = [self pullForExtra:extra];
+                [self applyPull:self.pull edge:self.edge];
+            } else {
+                self.pull = 0;
+                self.edge = 0;
+                [self applyPull:0 edge:0];
+            }
+            self.lastTranslation = translation;
+            break;
+        }
+        case UIGestureRecognizerStateChanged: {
+            CGFloat dy = translation - self.lastTranslation;
+            self.lastTranslation = translation;
+            CGFloat top = [self topOffset], bottom = [self bottomOffset];
+            CGFloat y = sv.contentOffset.y;
+            if (self.edge != 0 && self.pull > 0) {
+                CGFloat pulled = self.pull + (self.edge > 0 ? dy : -dy);
+                if (pulled <= 0) {
+                    // the finger came back past where the stretch started: the list scrolls again by what is left over
+                    CGFloat left = -pulled;
+                    CGFloat y2 = self.edge > 0 ? top + left : bottom - left;
+                    self.pull = 0;
+                    self.edge = 0;
+                    sv.contentOffset = CGPointMake(sv.contentOffset.x, MIN(MAX(y2, top), bottom));
+                } else {
+                    self.pull = pulled;
+                    sv.contentOffset = CGPointMake(sv.contentOffset.x, self.edge > 0 ? top : bottom);   // pinned to the edge
+                }
+            } else if (y <= top + 0.5 && dy > 0) {
+                self.edge = 1;
+                self.pull = dy;
+            } else if (y >= bottom - 0.5 && dy < 0) {
+                self.edge = -1;
+                self.pull = -dy;
+            }
+            [self applyPull:self.pull edge:self.edge];
+            break;
+        }
+        default: {   // ended, cancelled, failed
+            if (self.pull > 0) {
+                [self releaseStretch];
+            } else {
+                // a fling that reaches an end is followed to see how fast it arrives
+                __weak typeof(self) weak = self;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    MaterialStretch *me = weak;
+                    if (me && me.scrollView.isDecelerating) [me startLink];
+                });
+            }
+            break;
+        }
+    }
+}
+
+#pragma mark Fling into an end
+
+- (void)startLink {
+    if (self.link || !self.scrollView) return;
+    self.lastY = self.scrollView.contentOffset.y;
+    self.lastTime = 0;
+    self.velocity = 0;
+    self.link = [CADisplayLink displayLinkWithTarget:self selector:@selector(tick:)];
+    [self.link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+}
+
+- (void)stopLink {
+    [self.link invalidate];
+    self.link = nil;
+}
+
+- (void)tick:(CADisplayLink *)link {
+    UIScrollView *sv = self.scrollView;
+    if (!sv || !sv.isDecelerating || sv.isDragging || ![self enabled]) { [self stopLink]; return; }
+    CGFloat y = sv.contentOffset.y;
+    CGFloat top = [self topOffset], bottom = [self bottomOffset];
+    CGFloat before = self.velocity;
+    if (self.lastTime > 0 && link.timestamp > self.lastTime) self.velocity = (y - self.lastY) / (link.timestamp - self.lastTime);
+    BOOL hitTop = y <= top + 0.5 && self.lastY > top + 0.5;
+    BOOL hitBottom = y >= bottom - 0.5 && self.lastY < bottom - 0.5;
+    self.lastY = y;
+    self.lastTime = link.timestamp;
+    if (!hitTop && !hitBottom) return;
+    [self stopLink];
+    CGFloat speed = fabs(before);
+    if (speed < 250) return;
+    [self absorbSpeed:speed edge:hitTop ? 1 : -1];
+}
+
+// The content swells for a moment in proportion to the speed it arrived with, then springs back.
+- (void)absorbSpeed:(CGFloat)speed edge:(NSInteger)edge {
+    UIScrollView *sv = self.scrollView;
+    if (!sv) return;
+    NSUInteger token = ++self.generation;
+    CGFloat peak = MIN(speed * 0.045, [self viewport] * 0.16);
+    self.edge = edge;
+    CATransform3D from = sv.layer.sublayerTransform;
+    [self applyPull:peak edge:edge];
+    self.pull = peak;
+    CABasicAnimation *rise = [CABasicAnimation animationWithKeyPath:@"sublayerTransform"];
+    rise.fromValue = [NSValue valueWithCATransform3D:from];
+    rise.toValue = [NSValue valueWithCATransform3D:sv.layer.sublayerTransform];
+    rise.duration = MaterialDurationShort3 * 0.7;
+    rise.timingFunction = [CAMediaTimingFunction functionWithControlPoints:0 :0 :0.2 :1];
+    __weak typeof(self) weak = self;
+    [CATransaction begin];
+    [CATransaction setCompletionBlock:^{
+        MaterialStretch *me = weak;
+        if (me && me.generation == token) [me releaseStretch];
+    }];
+    [sv.layer addAnimation:rise forKey:@"stretch"];
+    [CATransaction commit];
+}
+
+- (void)dealloc { [self.link invalidate]; }
+
+@end
+
 @implementation Material
 
 + (BOOL)active { return [Theme materialDesign]; }
@@ -1060,7 +1293,19 @@ static const void *kPressHandlerKey = &kPressHandlerKey;
     [self animateSpatial:MaterialMotionDefault delay:0.035 * order animations:^{ cell.alpha = 1; cell.transform = CGAffineTransformIdentity; } completion:nil];
 }
 
++ (void)installStretchOnScrollView:(UIScrollView *)scrollView {
+    if (!scrollView) return;
+    MaterialStretch *existing = objc_getAssociatedObject(scrollView, kStretchKey);
+    if (existing) { [existing syncBounces]; return; }
+    MaterialStretch *stretch = [[MaterialStretch alloc] init];
+    stretch.scrollView = scrollView;
+    [scrollView.panGestureRecognizer addTarget:stretch action:@selector(pan:)];
+    objc_setAssociatedObject(scrollView, kStretchKey, stretch, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [stretch syncBounces];
+}
+
 + (void)installTableEffects:(UITableView *)table {
+    [self installStretchOnScrollView:table];
     if (objc_getAssociatedObject(table, kPressHandlerKey)) return;
     MaterialPressHandler *handler = [[MaterialPressHandler alloc] init];
     handler.table = table;

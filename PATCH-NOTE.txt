@@ -143,3 +143,14 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - The card opens a new screen: the big ring + logo, the account state, and buttons: Sign in with Google (filled), Check connection (asks Gemini for the model list with the Google session and shows the result), Sign out (tonal, error colour, with the confirm popup), Use a Gemini API key instead (opens the key screen). Sign-in and sign-out update the card and the Gemini key row at once.
 - New: GoogleAccountViewController.h/.m, 9 strings in vi and en (equal counts).
 - Not compiled or run on a device.
+
+[0.8.0 beta 17]
+- Material 3 stretch overscroll (as Android 12+) at the top and the bottom of every list and page (settings, history, model lists, key screen, font page, account screen...). In the Material design the rubber band that slid the content away is replaced by a stretch:
+  * pulling past an end grows the content along the scroll axis (up to 28 %), anchored on the edge it is pulled from, with a resistance that grows with the distance (tanh curve); the content is not moved;
+  * letting go springs it back, critically damped (stiffness 300, ratio 1), so it never shrinks below its natural size; catching it again while it springs back carries on from where it is on screen;
+  * pulling back the other way gives the finger back to normal scrolling by exactly the distance that is left over;
+  * a fling that runs into an end swells the content by an amount that follows the speed it arrived with (0.045 x speed, at most 16 % of the height, rising in 100 ms) and then springs back;
+  * works for short content too (pull either way), nothing is stretched sideways.
+  * Done on the layer (sublayerTransform about the visible edge), with no delegate: cells, headers and the account card stretch together. Off (the normal rubber band comes back) in the Classic design and with Reduce Motion.
+- The chat page itself (a web view with its own scrolling) keeps the system overscroll.
+- Not compiled or run on a device.

@@ -204,6 +204,7 @@ static UIColor *RingBlue(void) { return [UIColor colorWithRed:0.31 green:0.64 bl
     self.scrollView = [[UIScrollView alloc] initWithFrame:self.view.bounds];
     self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.scrollView.alwaysBounceVertical = YES;
+    [Material installStretchOnScrollView:self.scrollView];   // Material 3 stretch at the ends
     self.scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     [self.view addSubview:self.scrollView];
 
