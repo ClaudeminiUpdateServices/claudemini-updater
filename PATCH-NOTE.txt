@@ -170,3 +170,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 19]
 - Stretch overscroll reacts at once: the few points of movement before the page starts to scroll now count as part of the pull when the page is at an end (no dead zone), so the content starts to stretch the moment the finger moves. A quick flick at an end that has no room to scroll (flick down at the top, up at the bottom) swells the content with the flick speed (like a fling that runs into the end), then springs back.
 - Not compiled or run on a device.
+
+[0.8.0 beta 20]
+- The Claude mark follows the app icon: change the icon (SideStore purple, LiveContainer blue, Dopamine green, Chimera white, Sileo teal, Github red) and the Claude starburst turns that colour everywhere it is drawn (the model list rows of Claude, the Google account card and screen); the default icon keeps the original orange. Theme.claudeMarkColor / claudeMarkImage: the PNG is recoloured by its alpha (source-in), cached per colour; the account ring cross-fades to the new colour when the icon changes. The picture on the empty chat already followed the icon.
+- Not compiled or run on a device.

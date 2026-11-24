@@ -33,18 +33,28 @@ static UIColor *RingBlue(void) { return [UIColor colorWithRed:0.31 green:0.64 bl
             [self.layer addSublayer:ring];
         }
         _inner.opacity = 0.7;
-        _logo = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"logo_claude_mark.png"]];
+        _logo = [[UIImageView alloc] initWithImage:[Theme claudeMarkImage]];
         _logo.contentMode = UIViewContentModeScaleAspectFit;
         [self addSubview:_logo];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(startSpinning) name:UIApplicationDidBecomeActiveNotification object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(refreshLogo) name:kNotifThemeChanged object:nil];
     }
     return self;
 }
 
 - (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
 
+// The mark takes the colour of the app icon, so it changes with the icon.
+- (void)refreshLogo {
+    UIImage *image = [Theme claudeMarkImage];
+    if (image && image != self.logo.image) {
+        [UIView transitionWithView:self.logo duration:0.3 options:UIViewAnimationOptionTransitionCrossDissolve animations:^{ self.logo.image = image; } completion:nil];
+    }
+}
+
 - (void)didMoveToWindow {
     [super didMoveToWindow];
+    if (self.window) [self refreshLogo];
     if (self.window) [self startSpinning]; else { [self.outer removeAllAnimations]; [self.inner removeAllAnimations]; }
 }
 
