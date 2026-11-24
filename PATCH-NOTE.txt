@@ -179,3 +179,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - The rings of dots around the Claude mark (Google account card and screen) now follow the accent colour instead of a fixed blue: the outer ring is the accent, a little lighter and softer (readable on a light card, glowing on a dark one), the inner ring is its neighbour on the colour wheel (+7 % hue) and a little fainter. They change at once with the accent, the skin and the light/dark mode.
 - (beta 20) the Claude mark there already takes the colour of the chosen app icon.
 - Not compiled or run on a device.
+
+[0.8.0 beta 22]
+- Material 3 message box now floats: no panel behind it and no line above it. The wallpaper or the moving gradient runs behind the box down to the bottom edge (also under the home indicator), the page still stops above the box, and the box has a soft shadow (stronger in dark mode). Classic keeps the panel and the line.
+- Not compiled or run on a device.

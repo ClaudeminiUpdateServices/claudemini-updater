@@ -1128,9 +1128,25 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     }
 
     self.webView.frame = CGRectMake(0, 0, width, CGRectGetMinY(self.inputBar.frame));
-    self.wallpaperView.frame = self.webView.frame;
-    self.gradientView.frame = self.webView.frame;
+    // Material 3: the message box floats (no panel and no line under it), so the wallpaper or the moving gradient runs
+    // behind it down to the bottom edge; the page itself still stops above the box.
+    CGRect backdrop = material ? CGRectMake(0, 0, width, height) : self.webView.frame;
+    self.wallpaperView.frame = backdrop;
+    self.gradientView.frame = backdrop;
     self.dimView.frame = self.wallpaperView.bounds;
+    [self.inputBar viewWithTag:1001].hidden = material;
+    self.inputBar.backgroundColor = material ? [UIColor clearColor] : [Theme background];
+    CALayer *boxLayer = self.inputBox.layer;
+    if (material) {
+        boxLayer.shadowColor = [UIColor blackColor].CGColor;
+        boxLayer.shadowOpacity = [Theme darkMode] ? 0.38 : 0.14;
+        boxLayer.shadowRadius = 14;
+        boxLayer.shadowOffset = CGSizeMake(0, 5);
+        boxLayer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:self.inputBox.bounds cornerRadius:boxLayer.cornerRadius].CGPath;
+    } else {
+        boxLayer.shadowOpacity = 0;
+        boxLayer.shadowPath = nil;
+    }
     self.chatRightOverlayButton.frame = self.chatStageView.bounds;
     if (self.historyDrawerOpen) {
         [self.chatStageView bringSubviewToFront:self.chatRightOverlayButton];
@@ -1568,7 +1584,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     [self.modelButton setTitleColor:[Theme text] forState:UIControlStateNormal];
     [self updateModelTitle];
-    self.inputBar.backgroundColor = [Theme background];
+    self.inputBar.backgroundColor = [Material active] ? [UIColor clearColor] : [Theme background];
     [self.inputBar viewWithTag:1001].backgroundColor = [Theme border];
     self.inputBox.backgroundColor = [Theme surface];
     self.inputBox.layer.borderColor = [Theme border].CGColor;
