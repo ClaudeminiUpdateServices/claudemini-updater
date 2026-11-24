@@ -174,3 +174,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 20]
 - The Claude mark follows the app icon: change the icon (SideStore purple, LiveContainer blue, Dopamine green, Chimera white, Sileo teal, Github red) and the Claude starburst turns that colour everywhere it is drawn (the model list rows of Claude, the Google account card and screen); the default icon keeps the original orange. Theme.claudeMarkColor / claudeMarkImage: the PNG is recoloured by its alpha (source-in), cached per colour; the account ring cross-fades to the new colour when the icon changes. The picture on the empty chat already followed the icon.
 - Not compiled or run on a device.
+
+[0.8.0 beta 21]
+- The rings of dots around the Claude mark (Google account card and screen) now follow the accent colour instead of a fixed blue: the outer ring is the accent, a little lighter and softer (readable on a light card, glowing on a dark one), the inner ring is its neighbour on the colour wheel (+7 % hue) and a little fainter. They change at once with the accent, the skin and the light/dark mode.
+- (beta 20) the Claude mark there already takes the colour of the chosen app icon.
+- Not compiled or run on a device.

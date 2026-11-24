@@ -8,7 +8,17 @@
 #import "ChoicePopupViewController.h"
 #import "Strings.h"
 
-static UIColor *RingBlue(void) { return [UIColor colorWithRed:0.31 green:0.64 blue:0.97 alpha:1]; }
+// The rings follow the accent colour: the outer one is the accent made a little lighter and softer (so the dots stay
+// readable on a light card and glow on a dark one), the inner one is its neighbour on the colour wheel.
+static void RingColors(UIColor **outer, UIColor **inner) {
+    CGFloat h = 0, s = 0, b = 0, a = 0;
+    [[Theme accent] getHue:&h saturation:&s brightness:&b alpha:&a];
+    BOOL dark = [Theme darkMode];
+    CGFloat sat = MIN(0.85, MAX(0.38, s * (dark ? 0.78 : 0.88)));
+    CGFloat bri = dark ? MAX(0.86, b) : MIN(0.95, MAX(0.72, b));
+    *outer = [UIColor colorWithHue:h saturation:sat brightness:bri alpha:1];
+    *inner = [UIColor colorWithHue:fmod(h + 0.07, 1.0) saturation:MAX(0.3, sat * 0.85) brightness:MIN(1.0, bri + (dark ? 0 : 0.03)) alpha:1];
+}
 
 #pragma mark - Ring
 
@@ -28,7 +38,6 @@ static UIColor *RingBlue(void) { return [UIColor colorWithRed:0.31 green:0.64 bl
         _inner = [CAShapeLayer layer];
         for (CAShapeLayer *ring in @[_outer, _inner]) {
             ring.fillColor = nil;
-            ring.strokeColor = RingBlue().CGColor;
             ring.lineCap = kCALineCapRound;
             [self.layer addSublayer:ring];
         }
@@ -38,14 +47,26 @@ static UIColor *RingBlue(void) { return [UIColor colorWithRed:0.31 green:0.64 bl
         [self addSubview:_logo];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(startSpinning) name:UIApplicationDidBecomeActiveNotification object:nil];
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(refreshLogo) name:kNotifThemeChanged object:nil];
+        [self applyRingColors];
     }
     return self;
 }
 
 - (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
 
-// The mark takes the colour of the app icon, so it changes with the icon.
+- (void)applyRingColors {
+    UIColor *outer = nil, *inner = nil;
+    RingColors(&outer, &inner);
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    self.outer.strokeColor = outer.CGColor;
+    self.inner.strokeColor = inner.CGColor;
+    [CATransaction commit];
+}
+
+// The mark takes the colour of the app icon, so it changes with the icon; the rings take the accent.
 - (void)refreshLogo {
+    [self applyRingColors];
     UIImage *image = [Theme claudeMarkImage];
     if (image && image != self.logo.image) {
         [UIView transitionWithView:self.logo duration:0.3 options:UIViewAnimationOptionTransitionCrossDissolve animations:^{ self.logo.image = image; } completion:nil];
