@@ -4,6 +4,7 @@
 #import "Theme.h"
 #import "KeyStore.h"
 #import "GoogleAuth.h"
+#import "GoogleAccountViewController.h"
 #import "AppSettings.h"
 #import "ConversationStore.h"
 #import "RootViewController.h"
@@ -745,6 +746,8 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
 @interface SettingsViewController ()
 @property (strong, nonatomic) UITableView *tableView;
 @property (assign, nonatomic) BOOL hasAppearedOnce;
+@property (strong, nonatomic) UIView *accountHeader;          // holds the Google account card above the list
+@property (strong, nonatomic) GoogleAccountCardView *accountCard;
 @property (strong, nonatomic) NSMutableSet<NSNumber *> *collapsedSections;   // Material 3: sections folded by their header
 @end
 
@@ -765,12 +768,46 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     self.tableView.separatorColor = [Theme border];
     [self.view addSubview:self.tableView];
     self.collapsedSections = [NSMutableSet set];
+
+    // The Google account card at the top of the list (like the account card of the system settings).
+    self.accountHeader = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 112)];
+    self.accountCard = [[GoogleAccountCardView alloc] init];
+    [self.accountCard addTarget:self action:@selector(accountTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self.accountHeader addSubview:self.accountCard];
+    self.tableView.tableHeaderView = self.accountHeader;
+
     [self applyMaterialStyle];
     [Material markTableForEntrance:self.tableView];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applyTheme) name:kNotifThemeChanged object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleUIScaleChanged) name:@"UIScaleDidChangeNotification" object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateStateChanged) name:kNotifUpdateChanged object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(accountChanged) name:kNotifKeyChanged object:nil];
+}
+
+#pragma mark - Google account
+
+- (void)accountTapped {
+    [self.navigationController pushViewController:[[GoogleAccountViewController alloc] init] animated:YES];
+}
+
+- (void)accountChanged {
+    [self.accountCard refresh];
+    if (self.isViewLoaded && self.view.window) [self.tableView reloadData];   // the Gemini key row shows the account
+}
+
+// Card inside the header: same side margin as the rows (the table is already inset in Material 3).
+- (void)layoutAccountHeader {
+    CGFloat width = self.tableView.bounds.size.width;
+    if (width < 1) return;
+    CGFloat margin = [Material active] ? 0 : 16;
+    CGFloat cardHeight = 92;
+    CGRect headerFrame = CGRectMake(0, 0, width, cardHeight + 20);
+    if (!CGRectEqualToRect(self.accountHeader.frame, headerFrame)) {
+        self.accountHeader.frame = headerFrame;
+        self.tableView.tableHeaderView = self.accountHeader;   // reassign so the table takes the new height
+    }
+    self.accountCard.frame = CGRectMake(margin, 8, width - 2 * margin, cardHeight);
 }
 
 #pragma mark - App update
@@ -880,12 +917,15 @@ typedef NS_ENUM(NSInteger, SettingsSection) {
     self.tableView.rowHeight = material ? 64 : UITableViewAutomaticDimension;
     if (material) [Material decorateTable:self.tableView];
     [Material layoutTable:self.tableView inBounds:self.view.bounds];
+    [self layoutAccountHeader];
+    [self.accountCard refresh];
     [Material styleTitleForController:self];
 }
 
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     [Material layoutTable:self.tableView inBounds:self.view.bounds];
+    [self layoutAccountHeader];
 }
 
 - (void)applyTheme {

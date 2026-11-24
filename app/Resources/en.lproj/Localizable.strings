@@ -373,3 +373,14 @@
 "google_status_denied" = "Google refused Gemini access (HTTP %ld). Check that the Generative Language API is enabled, your email is a test user, and the Project ID is right.";
 "err_google_auth" = "The Google sign-in is no longer valid. Go to Settings › Gemini API key and sign in again.";
 "err_google_permission" = "This Google account/project is not allowed to use Gemini. Check that the Generative Language API is enabled and the Project ID.";
+
+/* Google account screen */
+"google_account_title" = "Google Account";
+"google_account_desc" = "Sign in with your Google account so you do not need an API key";
+"google_account_signed_in" = "Signed in";
+"google_account_not_signed_in" = "Not signed in";
+"google_account_active" = "Gemini is using this Google account, no API key needed.";
+"google_check" = "Check connection";
+"google_checking" = "Checking…";
+"google_use_key" = "Use a Gemini API key instead";
+"google_signed_out" = "Signed out of Google.";

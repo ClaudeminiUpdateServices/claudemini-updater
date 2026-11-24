@@ -137,3 +137,9 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
   * requirement: the iOS OAuth client in Google Cloud must use the bundle id com.puc.claudemini; with the OAuth app in "Testing" the refresh token lasts 7 days.
 - Gradient wallpaper, much livelier: 7 blobs instead of 5; each follows its own closed Lissajous path (they cross and pass each other, no more plain circles), with larger reach and laps of 17 to 29 s; stronger breathing (0.78 to 1.22), a brightness pulse, and a slow hue slide to the neighbouring hues and back on its own clock. Still under Reduce Motion.
 - Not compiled or run on a device.
+
+[0.8.0 beta 16]
+- Settings: a Google account card at the very top, in the style of the account card of the system settings: the Claude mark inside two rings of blue dots (the rings turn slowly in opposite directions, still under Reduce Motion), the title "Tài khoản Google" and "Đăng nhập tài khoản Google để không cần dùng key API" (the email once signed in). Material 3: rounded card, dips on the spatial spring when pressed.
+- The card opens a new screen: the big ring + logo, the account state, and buttons: Sign in with Google (filled), Check connection (asks Gemini for the model list with the Google session and shows the result), Sign out (tonal, error colour, with the confirm popup), Use a Gemini API key instead (opens the key screen). Sign-in and sign-out update the card and the Gemini key row at once.
+- New: GoogleAccountViewController.h/.m, 9 strings in vi and en (equal counts).
+- Not compiled or run on a device.
