@@ -563,9 +563,11 @@ static void MascotFill(CGFloat *out, NSInteger index) {
 
 #pragma mark - MaterialGradientView
 
-// A soft aurora: a base colour with five large, blurred colour blobs (all derived from the accent) that drift
-// along slow elliptical paths and breathe. No stripes and no spinning bands, only light moving in colour.
-#define GRADIENT_BLOBS 5
+// A soft aurora: a base colour with seven large, blurred colour blobs (all derived from the accent). Each blob follows
+// its own looping Lissajous path (so the lights cross and pass each other instead of circling), breathes, pulses in
+// brightness, and slowly slides through neighbouring hues. No stripes and no spinning bands, only light moving in colour.
+#define GRADIENT_BLOBS 7
+#define GRADIENT_PATH_POINTS 72
 
 @interface MaterialGradientView ()
 @property (strong, nonatomic) NSMutableArray<CAGradientLayer *> *blobs;
@@ -614,13 +616,14 @@ static void MascotFill(CGFloat *out, NSInteger index) {
     self.builtSize = CGSizeZero;
 }
 
-// Colours of one blob: the accent hue moved a little, soft in light mode, deep in dark mode.
-- (NSArray *)colorsForBlob:(NSInteger)index {
-    static const CGFloat hueShift[GRADIENT_BLOBS] = { 0.0, 0.08, -0.07, 0.16, -0.14 };
-    static const CGFloat strength[GRADIENT_BLOBS] = { 0.95, 0.80, 0.85, 0.65, 0.75 };
+// Colours of one blob: the accent hue moved a little (plus `drift`, the slow hue slide), soft in light mode, deep in
+// dark mode.
+- (NSArray *)colorsForBlob:(NSInteger)index hueDrift:(CGFloat)drift {
+    static const CGFloat hueShift[GRADIENT_BLOBS] = { 0.0, 0.08, -0.07, 0.16, -0.14, 0.04, -0.03 };
+    static const CGFloat strength[GRADIENT_BLOBS] = { 0.95, 0.80, 0.85, 0.65, 0.75, 0.70, 0.60 };
     CGFloat h = 0, s = 0, v = 0, alpha = 0;
     [[Theme accent] getHue:&h saturation:&s brightness:&v alpha:&alpha];
-    CGFloat hue = fmod(h + hueShift[index] + 1.0, 1.0);
+    CGFloat hue = fmod(h + hueShift[index] + drift + 2.0, 1.0);
     BOOL dark = [Theme darkMode];
     CGFloat sat = MAX(0.35, MIN(1.0, s * (dark ? 0.95 : 0.62)));
     CGFloat bri = dark ? MIN(0.78, MAX(0.5, v * 0.7)) : 1.0;
@@ -636,22 +639,26 @@ static void MascotFill(CGFloat *out, NSInteger index) {
     self.backgroundColor = [Theme background];
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    for (NSInteger i = 0; i < (NSInteger)self.blobs.count; i++) self.blobs[i].colors = [self colorsForBlob:i];
+    for (NSInteger i = 0; i < (NSInteger)self.blobs.count; i++) self.blobs[i].colors = [self colorsForBlob:i hueDrift:0];
     [CATransaction commit];
-    if (self.window && self.builtSize.width < 1) [self setNeedsLayout];
+    // the hue slide is built from the accent too, so it is rebuilt with it
+    if (self.window) { self.builtSize = CGSizeZero; [self setNeedsLayout]; }
 }
 
 - (void)rebuildMotion {
     CGSize size = self.bounds.size;
     if (size.width < 2 || size.height < 2) return;
     self.builtSize = size;
-    // anchor (x, y), diameter (x longest side), radius of the drift (x, y), seconds per lap, direction
-    static const CGFloat spec[GRADIENT_BLOBS][7] = {
-        { 0.22, 0.18, 1.15, 0.20, 0.10, 23,  1 },
-        { 0.80, 0.32, 1.05, 0.16, 0.16, 29, -1 },
-        { 0.28, 0.72, 1.25, 0.20, 0.12, 33,  1 },
-        { 0.85, 0.86, 1.05, 0.14, 0.14, 27, -1 },
-        { 0.55, 0.48, 0.95, 0.24, 0.18, 37,  1 },
+    // anchor (x, y), diameter (x longest side), reach of the drift (x, y), seconds per lap,
+    // x and y loops per lap (a different pair makes a different figure), phase of x, seconds per breath
+    static const CGFloat spec[GRADIENT_BLOBS][10] = {
+        { 0.22, 0.18, 1.15, 0.34, 0.20, 19, 1, 2, 0.00,  7.0 },
+        { 0.80, 0.32, 1.05, 0.30, 0.24, 23, 2, 1, 0.25,  8.5 },
+        { 0.28, 0.72, 1.25, 0.34, 0.22, 26, 1, 3, 0.50,  9.5 },
+        { 0.85, 0.86, 1.05, 0.28, 0.24, 21, 3, 2, 0.75,  6.5 },
+        { 0.55, 0.48, 0.95, 0.38, 0.28, 29, 2, 3, 0.10, 10.5 },
+        { 0.10, 0.50, 0.90, 0.30, 0.30, 17, 1, 1, 0.60,  7.5 },
+        { 0.65, 0.12, 0.85, 0.32, 0.20, 24, 3, 1, 0.35,  8.0 },
     };
     CGFloat longest = MAX(size.width, size.height);
     BOOL still = UIAccessibilityIsReduceMotionEnabled() || self.window == nil;
@@ -661,30 +668,59 @@ static void MascotFill(CGFloat *out, NSInteger index) {
         CGFloat d = longest * spec[i][2];
         CGPoint center = CGPointMake(size.width * spec[i][0], size.height * spec[i][1]);
         CGFloat rx = size.width * spec[i][3], ry = size.height * spec[i][4];
+        CGFloat seconds = spec[i][5];
+        double fx = spec[i][6], fy = spec[i][7], phase = spec[i][8];
+        CGPoint start = CGPointMake(center.x + rx * sin(2 * M_PI * phase), center.y);
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         blob.bounds = CGRectMake(0, 0, d, d);
-        blob.position = CGPointMake(center.x + rx, center.y);   // where the path below starts
+        blob.position = still ? center : start;
         [CATransaction commit];
-        if (still) { blob.position = center; continue; }
+        if (still) continue;
 
-        UIBezierPath *loop = [UIBezierPath bezierPathWithOvalInRect:CGRectMake(center.x - rx, center.y - ry, rx * 2, ry * 2)];
-        if (spec[i][6] < 0) loop = [loop bezierPathByReversingPath];
+        // one closed lap of a Lissajous figure, sampled; the last point is the first, so the loop has no seam
+        NSMutableArray *points = [NSMutableArray arrayWithCapacity:GRADIENT_PATH_POINTS + 1];
+        for (int k = 0; k <= GRADIENT_PATH_POINTS; k++) {
+            double u = (double)k / GRADIENT_PATH_POINTS;
+            CGFloat x = center.x + rx * sin(2 * M_PI * (fx * u + phase));
+            CGFloat y = center.y + ry * sin(2 * M_PI * fy * u);
+            [points addObject:[NSValue valueWithCGPoint:CGPointMake(x, y)]];
+        }
         CAKeyframeAnimation *drift = [CAKeyframeAnimation animationWithKeyPath:@"position"];
-        drift.path = loop.CGPath;
-        drift.duration = spec[i][5];
+        drift.values = points;
+        drift.calculationMode = kCAAnimationCubic;
+        drift.duration = seconds;
         drift.repeatCount = HUGE_VALF;
-        drift.calculationMode = kCAAnimationPaced;
-        drift.timeOffset = spec[i][5] * (0.13 * (i + 1));   // the blobs do not start in a row
+        drift.timeOffset = seconds * 0.11 * (i + 1);   // the blobs do not start in a row
         [blob addAnimation:drift forKey:@"drift"];
 
         CABasicAnimation *breathe = [CABasicAnimation animationWithKeyPath:@"transform.scale"];
-        breathe.fromValue = @0.88; breathe.toValue = @1.14;
-        breathe.duration = 8 + 1.7 * i;
+        breathe.fromValue = @0.78; breathe.toValue = @1.22;
+        breathe.duration = spec[i][9];
         breathe.autoreverses = YES;
         breathe.repeatCount = HUGE_VALF;
         breathe.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
         [blob addAnimation:breathe forKey:@"breathe"];
+
+        CABasicAnimation *pulse = [CABasicAnimation animationWithKeyPath:@"opacity"];
+        pulse.fromValue = @0.62; pulse.toValue = @1.0;
+        pulse.duration = spec[i][9] * 0.8 + 1.3;
+        pulse.autoreverses = YES;
+        pulse.repeatCount = HUGE_VALF;
+        pulse.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        pulse.timeOffset = pulse.duration * 0.17 * i;
+        [blob addAnimation:pulse forKey:@"pulse"];
+
+        // the colour slides to the neighbouring hues and back, each blob on its own clock
+        CAKeyframeAnimation *slide = [CAKeyframeAnimation animationWithKeyPath:@"colors"];
+        slide.values = @[[self colorsForBlob:i hueDrift:0], [self colorsForBlob:i hueDrift:0.07],
+                         [self colorsForBlob:i hueDrift:0], [self colorsForBlob:i hueDrift:-0.07],
+                         [self colorsForBlob:i hueDrift:0]];
+        slide.duration = 22 + 3.5 * i;
+        slide.repeatCount = HUGE_VALF;
+        slide.calculationMode = kCAAnimationLinear;
+        slide.timeOffset = slide.duration * 0.19 * i;
+        [blob addAnimation:slide forKey:@"hue"];
     }
 }
 

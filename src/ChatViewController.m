@@ -3269,9 +3269,10 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
 - (NSString *)messageForError:(GeminiStreamError)error status:(NSInteger)status detail:(NSString *)detail {
     NSString *base = nil;
     BOOL showDetail = NO;
+    BOOL viaGoogle = self.model.length > 0 && [Provider forModelId:self.model] == AIProviderGemini && [KeyStore geminiUsesGoogleAccount];
     switch (error) {
-        case GeminiStreamErrorInvalidKey:       base = L(@"err_invalid_key"); break;
-        case GeminiStreamErrorPermissionDenied: base = L(@"err_permission"); showDetail = YES; break;
+        case GeminiStreamErrorInvalidKey:       base = viaGoogle ? L(@"err_google_auth") : L(@"err_invalid_key"); break;
+        case GeminiStreamErrorPermissionDenied: base = viaGoogle ? L(@"err_google_permission") : L(@"err_permission"); showDetail = YES; break;
         case GeminiStreamErrorModelNotFound:    base = L(@"err_model_not_found"); break;
         case GeminiStreamErrorRateLimited:      base = L(@"err_rate"); showDetail = YES; break;
         case GeminiStreamErrorNetwork:          base = L(@"err_network"); showDetail = YES; break;

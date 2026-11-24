@@ -126,3 +126,14 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
   * the ripple (10 % of the text colour, as in Material 3) grows to the farthest corner in 450 ms with the emphasized decelerate curve and STAYS while the finger is down (before it faded half-way and left a hard edge); it fades in 300 ms when the finger leaves.
   * the dip (scale 0.975) is kept, on the same spring.
 - Not compiled or run on a device.
+
+[0.8.0 beta 15]
+- Ported from the new source (jb-main): Sign in with Google for Gemini (OAuth 2.0 + PKCE in the system web sheet, refresh token in the Keychain, Bearer token + optional x-goog-user-project instead of the API key).
+  * new GoogleAuth.h/.m; KeyStore hands out a marker in place of the key while Google is the active method, plus named secrets for the refresh token; KeyTier, GeminiClient and GeminiStream authorize each request first (and again on every retry, so a token that expired in between is refreshed).
+  * API key screen (Gemini): "Sign in with Google" button, sign-out with a confirm popup, status line with the account; the settings row shows the Google account.
+  * chat errors say "sign in to Google again" / "no permission, check the API and the Project ID" when the key in use is the Google session.
+  * strings added in vi and en (same key count), build.sh links AuthenticationServices.
+  * merged by hand: the Material radii, the choice popup and the portrait-only orientation of the key screen are kept. The unrelated build.yml and the unused StreamWatchdog of the new source were NOT ported (our streams already have their own watchdog).
+  * requirement: the iOS OAuth client in Google Cloud must use the bundle id com.puc.claudemini; with the OAuth app in "Testing" the refresh token lasts 7 days.
+- Gradient wallpaper, much livelier: 7 blobs instead of 5; each follows its own closed Lissajous path (they cross and pass each other, no more plain circles), with larger reach and laps of 17 to 29 s; stronger breathing (0.78 to 1.22), a brightness pulse, and a slow hue slide to the neighbouring hues and back on its own clock. Still under Reduce Motion.
+- Not compiled or run on a device.
