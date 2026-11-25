@@ -190,3 +190,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Account screen redone like the Apple Account page in Material 3: big round avatar, bold name, grey email, then grouped rounded cards of rows (coloured icon badge, title, chevron): Check connection / Sign in again / Use API key; and a separate card with Sign out in the error colour. Press highlight, busy state dims the rows, status line and sign-out confirmation kept.
 - Stretch overscroll at the bottom (and top) shows on the first pull: the move that carries the page to its end now counts the part that went past the end (expected offset against real offset), and the edge zone is 6 pt instead of 0.5 pt.
 - Not compiled or run on a device.
+
+[0.8.0 beta 24]
+- Fix: the message box cut the AI answers with a hard line above it (Material 3). The chat page now runs behind the floating box down to the bottom edge, has extra room at its end (CSS --dock = height of the box, so the last line still scrolls clear of the box), and fades out softly over the last stretch above the box (gradient mask on the web view) instead of being cut. Classic is unchanged.
+- Not compiled or run on a device.

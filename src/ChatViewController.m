@@ -216,6 +216,8 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (strong, nonatomic) MaterialGradientView *gradientView;   // the moving accent gradient wallpaper
 @property (strong, nonatomic) UIView *dimView;
 @property (assign, nonatomic) CGFloat keyboardOverlap;
+@property (assign, nonatomic) CGFloat lastDock;
+@property (assign, nonatomic) BOOL lastDockSent;
 
 @property (strong, nonatomic) NSMutableDictionary *conversation;
 @property (copy, nonatomic) NSString *model;
@@ -839,6 +841,36 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     return YES;
 }
 
+// `dock` is the height of the floating box (0 in Classic): the page gets that much room at its end, and a soft fade
+// over the last stretch above the box hides the hard edge of the text going under it.
+- (void)applyDockFade:(CGFloat)dock {
+    CGFloat h = self.webView.bounds.size.height;
+    if (dock > 0 && h > dock + 20) {
+        CAGradientLayer *mask = [self.webView.layer.mask isKindOfClass:[CAGradientLayer class]] ? (CAGradientLayer *)self.webView.layer.mask : nil;
+        if (!mask) {
+            mask = [CAGradientLayer layer];
+            mask.colors = @[(id)[UIColor blackColor].CGColor, (id)[UIColor blackColor].CGColor, (id)[UIColor clearColor].CGColor];
+            self.webView.layer.mask = mask;
+        }
+        CGFloat fadeTop = h - dock - 4;           // solid down to just above the box
+        CGFloat fadeEnd = h - dock + 26;          // gone a little way into the box
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        mask.frame = self.webView.bounds;
+        mask.startPoint = CGPointMake(0.5, 0);
+        mask.endPoint = CGPointMake(0.5, 1);
+        mask.locations = @[@0, @(MAX(0, MIN(1, fadeTop / h))), @(MAX(0, MIN(1, fadeEnd / h)))];
+        [CATransaction commit];
+    } else if (self.webView.layer.mask) {
+        self.webView.layer.mask = nil;
+    }
+    if (fabs(dock - self.lastDock) < 0.5 && self.lastDockSent) return;
+    self.lastDock = dock;
+    if (!self.webReady) { self.lastDockSent = NO; return; }
+    self.lastDockSent = YES;
+    [self.webView evaluateJavaScript:[NSString stringWithFormat:@"document.documentElement.style.setProperty('--dock','%.0fpx');", dock] completionHandler:nil];
+}
+
 - (void)unlockWebViewScrolling {
     if (!self.webView) return;
     // While the chat is empty the page is pinned (nothing to scroll, no rubber band), so the greeting card stays put.
@@ -1127,7 +1159,12 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
     }
 
-    self.webView.frame = CGRectMake(0, 0, width, CGRectGetMinY(self.inputBar.frame));
+    // Material 3: the page runs behind the floating box down to the bottom edge, with extra room at its end (the "dock")
+    // so the last line can still be scrolled clear of the box, and fades out under the box instead of being cut off.
+    CGFloat webBottom = CGRectGetMinY(self.inputBar.frame);
+    if (material) webBottom = self.keyboardOverlap > 0 ? height - self.keyboardOverlap : height;
+    self.webView.frame = CGRectMake(0, 0, width, webBottom);
+    [self applyDockFade:material ? MAX(0, webBottom - CGRectGetMinY(self.inputBar.frame)) : 0];
     // Material 3: the message box floats (no panel and no line under it), so the wallpaper or the moving gradient runs
     // behind it down to the bottom edge; the page itself still stops above the box.
     CGRect backdrop = material ? CGRectMake(0, 0, width, height) : self.webView.frame;
@@ -1732,6 +1769,8 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     if ([type isEqualToString:@"ready"]) {
         [DiagnosticLog log:@"chat page ready"];
         self.webReady = YES;
+        self.lastDockSent = NO;
+        [self.view setNeedsLayout];
         [self revealWebView];
         [self pushThemeToWeb];
         [self applyUIScaleToNativeAndWeb];

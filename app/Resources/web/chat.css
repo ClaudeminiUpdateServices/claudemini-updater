@@ -23,6 +23,7 @@ body {
   font-size: calc(16px * var(--uiscale));
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+  padding-bottom: var(--dock, 0px);   /* room under the floating message box (set by the app) */
 }
 #messages {
   max-width: 760px;
