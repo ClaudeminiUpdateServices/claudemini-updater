@@ -8,9 +8,16 @@ static UIBlurEffect *CurrentBlur(void) {
 
 #pragma mark - Progressive blur
 
+// A real blur whose strength changes with the height: the bar is cut into thin strips, every strip is a live
+// UIVisualEffectView, and the strength of its blur is set with a paused UIViewPropertyAnimator (fractionComplete 1 = the
+// full blur of the style, 0 = none). The strongest strip is at the top edge and the strength goes down strip by strip.
+// (No colour gradient and no mask: a mask over a blur view makes the blur disappear and leaves only a tint.)
+static const NSInteger kStrips = 16;
+
 @interface TopBlurView ()
-@property (strong, nonatomic) NSArray<UIView *> *layersHost;   // containers, each masked with its own fade
-@property (strong, nonatomic) NSArray<UIVisualEffectView *> *effects;
+@property (strong, nonatomic) NSMutableArray<UIVisualEffectView *> *strips;
+@property (strong, nonatomic) NSMutableArray<UIViewPropertyAnimator *> *animators;
+@property (assign, nonatomic) BOOL darkBuilt;
 @end
 
 @implementation TopBlurView
@@ -20,51 +27,66 @@ static UIBlurEffect *CurrentBlur(void) {
     if (self) {
         self.userInteractionEnabled = NO;
         self.backgroundColor = [UIColor clearColor];
-        // Three blurs on top of each other, each fading out at a different depth: the sum is strongest at the top edge and
-        // reaches nothing at the bottom, so the blur gets lighter step by step without any colour gradient.
-        NSMutableArray *hosts = [NSMutableArray array], *effects = [NSMutableArray array];
-        for (NSInteger i = 0; i < 3; i++) {
-            UIView *host = [[UIView alloc] init];
-            host.clipsToBounds = YES;
-            UIVisualEffectView *effect = [[UIVisualEffectView alloc] initWithEffect:CurrentBlur()];
-            effect.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-            [host addSubview:effect];
-            CAGradientLayer *mask = [CAGradientLayer layer];
-            mask.startPoint = CGPointMake(0.5, 0);
-            mask.endPoint = CGPointMake(0.5, 1);
-            mask.colors = @[(id)[UIColor blackColor].CGColor, (id)[UIColor blackColor].CGColor, (id)[UIColor clearColor].CGColor];
-            host.layer.mask = mask;
-            [self addSubview:host];
-            [hosts addObject:host];
-            [effects addObject:effect];
-        }
-        _layersHost = hosts;
-        _effects = effects;
+        self.clipsToBounds = YES;
+        _strips = [NSMutableArray array];
+        _animators = [NSMutableArray array];
+        // The blur of a view is reset by the system when the app comes back from the background: build it again.
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(rebuild) name:UIApplicationDidBecomeActiveNotification object:nil];
     }
     return self;
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    // where each blur starts to fade and where it is gone (fractions of the height)
-    static const CGFloat solid[3] = {0.55, 0.28, 0.0};
-    static const CGFloat gone[3]  = {1.0, 0.78, 0.5};
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-    for (NSInteger i = 0; i < 3; i++) {
-        UIView *host = self.layersHost[i];
-        host.frame = self.bounds;
-        self.effects[i].frame = host.bounds;
-        CAGradientLayer *mask = (CAGradientLayer *)host.layer.mask;
-        mask.frame = host.bounds;
-        mask.locations = @[@0, @(solid[i]), @(gone[i])];
-    }
-    [CATransaction commit];
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [self tearDown];
 }
 
-- (void)refreshStyle {
-    for (UIVisualEffectView *effect in self.effects) effect.effect = CurrentBlur();
+- (void)tearDown {
+    for (UIViewPropertyAnimator *animator in self.animators) [animator stopAnimation:YES];
+    [self.animators removeAllObjects];
+    for (UIView *strip in self.strips) [strip removeFromSuperview];
+    [self.strips removeAllObjects];
 }
+
+- (void)rebuild {
+    [self tearDown];
+    if (self.bounds.size.height < 2) return;
+    self.darkBuilt = [Theme darkMode];
+    UIBlurEffect *blur = CurrentBlur();
+    for (NSInteger i = 0; i < kStrips; i++) {
+        UIVisualEffectView *strip = [[UIVisualEffectView alloc] initWithEffect:nil];
+        [self addSubview:strip];
+        [self.strips addObject:strip];
+        __weak UIVisualEffectView *weakStrip = strip;
+        UIViewPropertyAnimator *animator = [[UIViewPropertyAnimator alloc] initWithDuration:1 curve:UIViewAnimationCurveLinear animations:^{
+            weakStrip.effect = blur;
+        }];
+        animator.pausesOnCompletion = YES;
+        // strength: full at the top edge, then falling off smoothly to almost nothing at the bottom
+        CGFloat x = ((CGFloat)i + 0.5) / kStrips;
+        animator.fractionComplete = MAX(0.0, MIN(1.0, pow(1.0 - x, 1.35)));
+        [self.animators addObject:animator];
+    }
+    [self setNeedsLayout];
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    if (self.window) [self rebuild];
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    if (self.strips.count != kStrips || self.darkBuilt != [Theme darkMode]) { [self rebuild]; }
+    CGFloat height = self.bounds.size.height, width = self.bounds.size.width;
+    CGFloat step = height / kStrips;
+    for (NSInteger i = 0; i < (NSInteger)self.strips.count; i++) {
+        // each strip reaches a little into the next one so that no seam shows
+        self.strips[i].frame = CGRectMake(0, floor(i * step), width, ceil(step) + 1);
+    }
+}
+
+- (void)refreshStyle { [self rebuild]; }
 
 @end
 

@@ -206,3 +206,10 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Chat page: the first message is pushed down by the height of the bar through the CSS variable --top (set from the safe area), the scroll indicator starts under the bar.
 - The two buttons of the chat bar (menu, new chat) are round frosted-glass buttons (GlassBarButton: blur, a hint of the accent, thin light edge, press-scale with a spring), like the back button of the reference picture.
 - Not compiled or run on a device. Layout risk: screens with their own frame layout may sit differently; tell me which ones.
+
+[0.8.0 beta 27]
+- Real blur at the top: the first version masked a UIVisualEffectView, which makes the system drop the blur (only a tint was left). TopBlurView now cuts the bar into 16 thin strips; each strip is a live UIVisualEffectView whose blur strength is set by a paused UIViewPropertyAnimator (fractionComplete), strongest at the top edge and falling off strip by strip. No mask and no colour gradient. Rebuilt on light/dark change, when the view gets a window and when the app becomes active (the system resets the blur in the background).
+- Real blur in the chat: the message box (Material 3) has a UIVisualEffectView behind its content with only a light tint over it (was a plain colour); the shadow was lowered so it does not dirty the glass. Classic keeps the solid box.
+- Fix: the greeting card of an empty chat sat under the bar (CSS .empty top: 29px) -> top: calc(29px + var(--top)).
+- Thinking line: the star is centred in its own box (flex), nudged 1 px up, and the text has an explicit line height so the two share one centre line.
+- Not compiled or run on a device.

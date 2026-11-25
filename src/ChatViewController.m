@@ -219,6 +219,7 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (strong, nonatomic) UIView *dimView;
 @property (assign, nonatomic) CGFloat keyboardOverlap;
 @property (strong, nonatomic) GooFanView *gooFan;
+@property (strong, nonatomic) UIVisualEffectView *inputBlur;
 @property (assign, nonatomic) CGFloat lastDock;
 @property (assign, nonatomic) CGFloat lastTop;
 @property (assign, nonatomic) BOOL lastTopSent;
@@ -891,6 +892,16 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self.webView evaluateJavaScript:[NSString stringWithFormat:@"document.documentElement.style.setProperty('--dock','%.0fpx');", dock] completionHandler:nil];
 }
 
+// Material 3: blur behind the message box, a light tint over it; Classic: the plain solid surface.
+- (void)styleInputBoxGlass {
+    BOOL material = [Material active];
+    self.inputBlur.hidden = !material;
+    self.inputBlur.effect = [UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
+    self.inputBlur.frame = self.inputBox.bounds;
+    self.inputBlur.layer.cornerRadius = self.inputBox.layer.cornerRadius;
+    self.inputBox.backgroundColor = material ? [[Theme surface] colorWithAlphaComponent:0.28] : [Theme surface];
+}
+
 - (UIBarButtonItem *)glassBarItemWithIcon:(UIImage *)icon label:(NSString *)label action:(SEL)action {
     GlassBarButton *button = [GlassBarButton buttonWithIcon:icon label:label target:self action:action];
     button.translatesAutoresizingMaskIntoConstraints = NO;
@@ -961,6 +972,11 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.inputBox.layer.borderWidth = 1;
     self.inputBox.layer.borderColor = [Theme border].CGColor;
     [self.inputBar addSubview:self.inputBox];
+    // Material 3: the box is real frosted glass (a live blur of what is behind it) with only a light tint on top.
+    self.inputBlur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight]];
+    self.inputBlur.userInteractionEnabled = NO;
+    self.inputBlur.clipsToBounds = YES;
+    [self.inputBox insertSubview:self.inputBlur atIndex:0];
 
     self.attachButton = [UIButton buttonWithType:UIButtonTypeCustom];
     [self.attachButton setImage:[Theme iconPlus] forState:UIControlStateNormal];
@@ -1204,10 +1220,11 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.dimView.frame = self.wallpaperView.bounds;
     [self.inputBar viewWithTag:1001].hidden = material;
     self.inputBar.backgroundColor = material ? [UIColor clearColor] : [Theme background];
+    [self styleInputBoxGlass];
     CALayer *boxLayer = self.inputBox.layer;
     if (material) {
         boxLayer.shadowColor = [UIColor blackColor].CGColor;
-        boxLayer.shadowOpacity = [Theme darkMode] ? 0.38 : 0.14;
+        boxLayer.shadowOpacity = [Theme darkMode] ? 0.22 : 0.10;
         boxLayer.shadowRadius = 14;
         boxLayer.shadowOffset = CGSizeMake(0, 5);
         boxLayer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:self.inputBox.bounds cornerRadius:boxLayer.cornerRadius].CGPath;
@@ -1654,7 +1671,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self updateModelTitle];
     self.inputBar.backgroundColor = [Material active] ? [UIColor clearColor] : [Theme background];
     [self.inputBar viewWithTag:1001].backgroundColor = [Theme border];
-    self.inputBox.backgroundColor = [Theme surface];
+    [self styleInputBoxGlass];
     self.inputBox.layer.borderColor = [Theme border].CGColor;
     self.inputBox.layer.cornerRadius = MIN(MR(22, 28), MAX(1, self.inputBox.bounds.size.height / 2.0));   // Material 3 shape; changes at once with the design switch
     self.attachButton.tintColor = [Theme secondaryText];
