@@ -130,7 +130,10 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         _items = items;
         self.backgroundColor = [UIColor clearColor];
         self.accessibilityViewIsModal = YES;
-        UIColor *fill = [Theme accent], *ink = [Theme onAccent];
+        // The same look as the + of the message box when it is closed: the colour of the box, a thin border and the grey icon
+        // (the accent only marks a switched-on action), so that the + simply turns into the row of buttons.
+        UIColor *fill = [[Theme surface] colorWithAlphaComponent:1], *ink = [Theme secondaryText];
+        UIColor *edge = [Theme border];
         // The blobs are one soft body: they share a drop shadow (the necks too) so they read as a single droplet lifting off the box.
         UIColor *shadow = [UIColor blackColor];
 
@@ -164,12 +167,13 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
             b.center = anchor;
             b.layer.cornerRadius = kBlobR;
             b.backgroundColor = fill;
-            b.layer.shadowColor = shadow.CGColor; b.layer.shadowOpacity = 0.30; b.layer.shadowRadius = 9; b.layer.shadowOffset = CGSizeMake(0, 4);
+            b.layer.shadowColor = shadow.CGColor; b.layer.shadowOpacity = 0.22; b.layer.shadowRadius = 9; b.layer.shadowOffset = CGSizeMake(0, 4);
             b.tag = i;
             [b setImage:item.icon forState:UIControlStateNormal];
             b.tintColor = ink;
             b.accessibilityLabel = item.title;
-            if (item.highlighted) { b.layer.borderWidth = 2.5; b.layer.borderColor = [ink colorWithAlphaComponent:0.9].CGColor; }
+            b.layer.borderWidth = 1; b.layer.borderColor = edge.CGColor;
+            if (item.highlighted) { b.tintColor = [Theme accent]; b.layer.borderColor = [Theme accent].CGColor; b.layer.borderWidth = 1.5; }
             [b addTarget:self action:@selector(blobTapped:) forControlEvents:UIControlEventTouchUpInside];
             b.transform = CGAffineTransformMakeScale(0.5, 0.5);
             [self addSubview:b];
@@ -178,6 +182,7 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         _fab = [[UIView alloc] initWithFrame:CGRectMake(anchor.x - kFabR, anchor.y - kFabR, kFabR * 2, kFabR * 2)];
         _fab.backgroundColor = fill;
         _fab.layer.cornerRadius = kFabR;
+        _fab.layer.borderWidth = 1; _fab.layer.borderColor = edge.CGColor;
         _fab.layer.shadowColor = shadow.CGColor; _fab.layer.shadowOpacity = 0.30; _fab.layer.shadowRadius = 9; _fab.layer.shadowOffset = CGSizeMake(0, 4);
         [self addSubview:_fab];
         _fabIcon = [[UIImageView alloc] initWithImage:[GooFanView glyph:@"plus"]];

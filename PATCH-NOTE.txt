@@ -228,3 +228,7 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Gooey + menu: the buttons now open in a straight row just above the message box, in line with it (first button right above the +, the row runs along the box; to the left when there is no room on the right; the old fan stays as the fallback when there is no room above the box). The first-version fan code was kept.
 - Smoother and nicer: the blobs, the + blob and the necks share a soft drop shadow (the necks only while they exist), the necks reach 52 pt so the droplet stretches longer before it splits; colours stay on the accent / its contrast colour so they follow the skin.
 - Not compiled or run on a device.
+
+[0.8.0 beta 31]
+- Gooey + menu colours now match the + of the message box when it is closed: the fill is the colour of the box (opaque Theme surface), a thin Theme border, grey icons (secondary text); the accent only marks an action that is switched on (web search: accent icon and ring). The + blob has the same look and turns into the x. The shadow is a little lighter.
+- Not compiled or run on a device.
