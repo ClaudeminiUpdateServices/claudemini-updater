@@ -2,6 +2,19 @@
 #import "Theme.h"
 #import "Strings.h"
 
+// A blur view normally paints a colour wash (the "tint" of the style) over the blurred picture. Only the blur is wanted, so
+// the wash layers are switched off; the layer that really samples and blurs what is behind (the backdrop) and the content
+// view stay. Called again after anything that may rebuild the layers.
+void TopBlurStripTint(UIVisualEffectView *view) {
+    for (UIView *sub in view.subviews) {
+        if (sub == view.contentView) continue;
+        NSString *name = NSStringFromClass([sub class]);
+        if ([name rangeOfString:@"Backdrop"].location != NSNotFound) continue;
+        sub.hidden = YES;
+        sub.alpha = 0;
+    }
+}
+
 static UIBlurEffect *CurrentBlur(void) {
     return [UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
 }
@@ -99,6 +112,7 @@ static CGFloat BlurStrengthAt(CGFloat p) {
     for (NSInteger i = 0; i < (NSInteger)self.strips.count; i++) {
         // each strip reaches a little into the next one so that no seam shows
         self.strips[i].frame = CGRectMake(0, floor(i * step), width, ceil(step) + 1);
+        TopBlurStripTint(self.strips[i]);
     }
 }
 
@@ -159,6 +173,7 @@ static CGFloat BlurStrengthAt(CGFloat p) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     self.glass.frame = self.bounds;
+    TopBlurStripTint(self.glass);
     self.tint.frame = self.glass.bounds;
     self.iconView.frame = self.bounds;
     self.layer.cornerRadius = self.bounds.size.height / 2;
@@ -168,7 +183,8 @@ static CGFloat BlurStrengthAt(CGFloat p) {
 - (void)refresh {
     BOOL dark = [Theme darkMode];
     self.glass.effect = CurrentBlur();
-    self.tint.backgroundColor = [[Theme accent] colorWithAlphaComponent:dark ? 0.14 : 0.10];   // a hint of the accent in the glass
+    self.tint.backgroundColor = [UIColor clearColor];   // no colour over the glass: only the blur
+    TopBlurStripTint(self.glass);
     self.layer.borderColor = (dark ? [UIColor colorWithWhite:1 alpha:0.20] : [UIColor colorWithWhite:0 alpha:0.10]).CGColor;
     self.layer.shadowOpacity = dark ? 0.30 : 0.14;
     self.iconView.tintColor = [Theme accent];

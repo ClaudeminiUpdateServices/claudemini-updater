@@ -899,7 +899,8 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.inputBlur.effect = [UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
     self.inputBlur.frame = self.inputBox.bounds;
     self.inputBlur.layer.cornerRadius = self.inputBox.layer.cornerRadius;
-    self.inputBox.backgroundColor = material ? [[Theme surface] colorWithAlphaComponent:0.28] : [Theme surface];
+    self.inputBox.backgroundColor = material ? [UIColor clearColor] : [Theme surface];   // Material: no colour over the glass, only the blur
+    TopBlurStripTint(self.inputBlur);
 }
 
 - (UIBarButtonItem *)glassBarItemWithIcon:(UIImage *)icon label:(NSString *)label action:(SEL)action {
@@ -972,7 +973,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.inputBox.layer.borderWidth = 1;
     self.inputBox.layer.borderColor = [Theme border].CGColor;
     [self.inputBar addSubview:self.inputBox];
-    // Material 3: the box is real frosted glass (a live blur of what is behind it) with only a light tint on top.
+    // Material 3: the box is real frosted glass (a live blur of what is behind it) with no colour on top.
     self.inputBlur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight]];
     self.inputBlur.userInteractionEnabled = NO;
     self.inputBlur.clipsToBounds = YES;

@@ -218,3 +218,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Top blur follows the web design (PucBloxWeb "pbs"): the same five-blur profile (4/10/20/40/80 px, each solid to a depth and fading out by a deeper one, summed as variances) is turned into the strength of 28 live blur strips; the blur reaches 48 pt below the bar (the web: 72 px). Glass buttons get the soft drop shadow of the web buttons.
 - Not done: the web scales the blur with the scroll position (--sp, no blur at the top of a page); here the blur is always on.
 - Not compiled or run on a device.
+
+[0.8.0 beta 29]
+- Blur only, no colour: the wash layers that a blur view paints over the blurred picture (the "tint" of the Dark/Light style) are switched off on the top strips, the glass buttons and the Material 3 message box (TopBlurStripTint keeps the backdrop that blurs and the content view); the extra colour layers I had added (accent tint in the buttons, light fill in the message box) are gone. The thin edge line of the buttons and the box stays.
+- Note: it relies on the layer names inside UIVisualEffectView ("Backdrop"), so a future iOS could bring the wash back; it is re-applied on every layout.
+- Not compiled or run on a device.
