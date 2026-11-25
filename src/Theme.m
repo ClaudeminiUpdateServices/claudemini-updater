@@ -83,6 +83,13 @@ static void LoadPrefs(void) {
             gAccS = MAX(0, MIN(1, [defaults doubleForKey:kAccSKey]));
             gAccB = MAX(0, MIN(1, [defaults doubleForKey:kAccBKey]));
         }
+        // Material 3 is the default look: a fresh install has it, and so does the first launch of each newly installed version
+        // (the choice is made again on every update; it can still be switched back to Classic afterwards).
+        NSString *build = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"?";
+        if ([defaults objectForKey:kMaterialKey] == nil || ![[defaults stringForKey:@"theme.materialSetFor"] isEqualToString:build]) {
+            [defaults setBool:YES forKey:kMaterialKey];
+            [defaults setObject:build forKey:@"theme.materialSetFor"];
+        }
         gMaterial = [defaults boolForKey:kMaterialKey];
         gLastDark = gAuto ? IsNightNow() : gDark;
     });

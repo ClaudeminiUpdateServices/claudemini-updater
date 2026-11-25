@@ -194,3 +194,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 24]
 - Fix: the message box cut the AI answers with a hard line above it (Material 3). The chat page now runs behind the floating box down to the bottom edge, has extra room at its end (CSS --dock = height of the box, so the last line still scrolls clear of the box), and fades out softly over the last stretch above the box (gradient mask on the web view) instead of being cut. Classic is unchanged.
 - Not compiled or run on a device.
+
+[0.8.0 beta 25]
+- New gooey + menu (Material 3), after Lucian UX/UI element #460 (MIT): tapping + turns it into an accent blob that squashes like a droplet and splits off into a fan of round buttons (Photo, Camera, File, Web search - ringed when on, and three dots = the full tool list). Closing (x, a tap outside, or choosing an action) pulls the buttons back stickily into one. The necks between the blobs are metaball bridges redrawn every frame (CADisplayLink) from the live positions. Colours follow the accent (fill) and its contrast colour (icons), so it changes with the skin, the custom accent and the app icon colour. Reduce Motion: no animation, the final states still work. Classic keeps the old list card. New files src/GooFanView.h/.m; the action switch of the old menu became performToolMenuItem: and is shared.
+- Material 3 is now the default look: a fresh install starts with it, and the first launch of every newly installed version selects it again (it can be switched back to Classic afterwards, until the next update).
+- Not compiled or run on a device.

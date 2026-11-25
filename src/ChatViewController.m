@@ -22,6 +22,7 @@
 #import "ModelPopupViewController.h"
 #import "ConfirmPopupViewController.h"
 #import "ComposerViews.h"
+#import "GooFanView.h"
 #import "ChoicePopupViewController.h"
 #import "UpdateManager.h"
 #import "KeyTier.h"
@@ -216,6 +217,7 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (strong, nonatomic) MaterialGradientView *gradientView;   // the moving accent gradient wallpaper
 @property (strong, nonatomic) UIView *dimView;
 @property (assign, nonatomic) CGFloat keyboardOverlap;
+@property (strong, nonatomic) GooFanView *gooFan;
 @property (assign, nonatomic) CGFloat lastDock;
 @property (assign, nonatomic) BOOL lastDockSent;
 
@@ -2392,17 +2394,48 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 }
 
 - (void)attachTapped {
-    if (self.streaming || self.toolMenuOverlay) return;
+    if (self.streaming || self.toolMenuOverlay || self.gooFan) return;
     [self.view endEditing:YES];
+    BOOL material = [Material active];
     if (self.keyboardOverlap <= 0) {
-        [self showToolMenu];
+        if (material) [self showGooFan]; else [self showToolMenu];
     } else {
         __weak typeof(self) weakSelf = self;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(260 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
             ChatViewController *me = weakSelf;
-            if (me && !me.streaming) [me showToolMenu];
+            if (!me || me.streaming || me.gooFan) return;
+            if ([Material active]) [me showGooFan]; else [me showToolMenu];
         });
     }
+}
+
+// Material 3: the + opens a gooey fan of the common actions; the three dots open the full list.
+- (void)showGooFan {
+    if (self.gooFan) return;
+    __weak typeof(self) weakSelf = self;
+    BOOL canUseCamera = [UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera];
+    NSMutableArray *items = [NSMutableArray array];
+    [items addObject:[GooFanItem itemWithTitle:@"Ảnh" icon:[GooFanView glyph:@"photo"] handler:^{ [weakSelf performToolMenuItem:0]; }]];
+    if (canUseCamera) [items addObject:[GooFanItem itemWithTitle:@"Camera" icon:[GooFanView glyph:@"camera"] handler:^{ [weakSelf performToolMenuItem:3]; }]];
+    [items addObject:[GooFanItem itemWithTitle:@"Tệp" icon:[GooFanView glyph:@"file"] handler:^{ [weakSelf performToolMenuItem:1]; }]];
+    GooFanItem *search = [GooFanItem itemWithTitle:L(@"search_chip_title") icon:[GooFanView glyph:@"search"] handler:^{ [weakSelf performToolMenuItem:4]; }];
+    search.highlighted = [AppSettings webSearchEnabled];
+    [items addObject:search];
+    [items addObject:[GooFanItem itemWithTitle:@"Thêm" icon:[GooFanView glyph:@"dots"] handler:^{ [weakSelf showToolMenu]; }]];
+    UIView *stage = self.chatStageView;
+    CGPoint anchor = [stage convertPoint:CGPointMake(CGRectGetMidX(self.attachButton.bounds), CGRectGetMidY(self.attachButton.bounds)) fromView:self.attachButton];
+    GooFanView *fan = [[GooFanView alloc] initWithFrame:stage.bounds anchor:anchor items:items];
+    fan.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    fan.onClosed = ^{
+        ChatViewController *me = weakSelf;
+        if (!me) return;
+        me.gooFan = nil;
+        me.attachButton.alpha = me.streaming ? 0.4 : 1.0;
+    };
+    self.gooFan = fan;
+    [stage addSubview:fan];
+    self.attachButton.alpha = 0;   // the blob of the menu takes the place of the +
+    [fan open];
 }
 
 - (void)dismissToolMenu {
@@ -2426,8 +2459,14 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [self dismissToolMenu];
     __weak typeof(self) weakSelf = self;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(190 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-        ChatViewController *me = weakSelf;
-        if (!me) return;
+        [weakSelf performToolMenuItem:item];
+    });
+}
+
+// The actions of the + menu (the list card and the Material 3 fan share them).
+- (void)performToolMenuItem:(NSInteger)item {
+    {
+        ChatViewController *me = self;
         if (item <= 3 && (NSInteger)me.pendingAttachments.count + me.importsInFlight >= kMaxAttachmentsPerMessage) {
             [me showAlertMessage:[NSString stringWithFormat:L(@"att_err_limit"), (long)kMaxAttachmentsPerMessage]];
             return;
@@ -2469,7 +2508,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
             default:
                 break;
         }
-    });
+    }
 }
 
 - (void)addToolMenuRowToCard:(UIView *)card y:(CGFloat)y icon:(NSString *)icon title:(NSString *)title subtitle:(NSString *)subtitle tag:(NSInteger)tag width:(CGFloat)width {
