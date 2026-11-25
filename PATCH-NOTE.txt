@@ -213,3 +213,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Fix: the greeting card of an empty chat sat under the bar (CSS .empty top: 29px) -> top: calc(29px + var(--top)).
 - Thinking line: the star is centred in its own box (flex), nudged 1 px up, and the text has an explicit line height so the two share one centre line.
 - Not compiled or run on a device.
+
+[0.8.0 beta 28]
+- Top blur follows the web design (PucBloxWeb "pbs"): the same five-blur profile (4/10/20/40/80 px, each solid to a depth and fading out by a deeper one, summed as variances) is turned into the strength of 28 live blur strips; the blur reaches 48 pt below the bar (the web: 72 px). Glass buttons get the soft drop shadow of the web buttons.
+- Not done: the web scales the blur with the scroll position (--sp, no blur at the top of a page); here the blur is always on.
+- Not compiled or run on a device.

@@ -12,7 +12,23 @@ static UIBlurEffect *CurrentBlur(void) {
 // UIVisualEffectView, and the strength of its blur is set with a paused UIViewPropertyAnimator (fractionComplete 1 = the
 // full blur of the style, 0 = none). The strongest strip is at the top edge and the strength goes down strip by strip.
 // (No colour gradient and no mask: a mask over a blur view makes the blur disappear and leaves only a tint.)
-static const NSInteger kStrips = 16;
+static const NSInteger kStrips = 28;
+
+// The strength profile of the web design (PucBloxWeb "pbs"): five blurs of 4, 10, 20, 40 and 80 px, each solid down to a
+// depth and fading out by a deeper one; the blurs add up (as variances), so the strongest sits at the top edge and the
+// weakest one reaches the bottom. Returns 0...1 for a position 0 (top) ... 1 (bottom).
+static CGFloat BlurStrengthAt(CGFloat p) {
+    static const CGFloat r[5]  = {4, 10, 20, 40, 80};
+    static const CGFloat m1[5] = {0.62, 0.52, 0.42, 0.32, 0.24};
+    static const CGFloat m2[5] = {1.00, 0.86, 0.72, 0.58, 0.44};
+    CGFloat sum = 0, top = 0;
+    for (int k = 0; k < 5; k++) {
+        CGFloat a = p <= m1[k] ? 1 : (p >= m2[k] ? 0 : (m2[k] - p) / (m2[k] - m1[k]));
+        sum += r[k] * a * r[k] * a;
+        top += r[k] * r[k];
+    }
+    return pow(sqrt(sum) / sqrt(top), 0.55);   // blur radius does not grow linearly with the animator fraction
+}
 
 @interface TopBlurView ()
 @property (strong, nonatomic) NSMutableArray<UIVisualEffectView *> *strips;
@@ -64,7 +80,7 @@ static const NSInteger kStrips = 16;
         animator.pausesOnCompletion = YES;
         // strength: full at the top edge, then falling off smoothly to almost nothing at the bottom
         CGFloat x = ((CGFloat)i + 0.5) / kStrips;
-        animator.fractionComplete = MAX(0.0, MIN(1.0, pow(1.0 - x, 1.35)));
+        animator.fractionComplete = MAX(0.0, MIN(1.0, BlurStrengthAt(x)));
         [self.animators addObject:animator];
     }
     [self setNeedsLayout];
@@ -115,6 +131,10 @@ static const NSInteger kStrips = 16;
         _glass = [[UIVisualEffectView alloc] initWithEffect:CurrentBlur()];
         _glass.userInteractionEnabled = NO;
         _glass.clipsToBounds = YES;
+        self.layer.shadowColor = [UIColor blackColor].CGColor;   // soft drop shadow like the web buttons
+        self.layer.shadowOpacity = 0.14;
+        self.layer.shadowRadius = 5;
+        self.layer.shadowOffset = CGSizeMake(0, 2);
         [self addSubview:_glass];
         _tint = [[UIView alloc] init];
         _tint.userInteractionEnabled = NO;
@@ -149,7 +169,8 @@ static const NSInteger kStrips = 16;
     BOOL dark = [Theme darkMode];
     self.glass.effect = CurrentBlur();
     self.tint.backgroundColor = [[Theme accent] colorWithAlphaComponent:dark ? 0.14 : 0.10];   // a hint of the accent in the glass
-    self.layer.borderColor = (dark ? [UIColor colorWithWhite:1 alpha:0.18] : [UIColor colorWithWhite:0 alpha:0.10]).CGColor;
+    self.layer.borderColor = (dark ? [UIColor colorWithWhite:1 alpha:0.20] : [UIColor colorWithWhite:0 alpha:0.10]).CGColor;
+    self.layer.shadowOpacity = dark ? 0.30 : 0.14;
     self.iconView.tintColor = [Theme accent];
 }
 

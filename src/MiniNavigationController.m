@@ -79,7 +79,7 @@
     // The blur covers the status bar and the bar, and goes on for a little more so that it can fade out below the buttons.
     CGFloat barBottom = CGRectGetMaxY(self.navigationBar.frame);
     self.topBlur.hidden = self.navigationBarHidden;
-    self.topBlur.frame = CGRectMake(0, 0, self.view.bounds.size.width, barBottom + 26);
+    self.topBlur.frame = CGRectMake(0, 0, self.view.bounds.size.width, barBottom + 48);
     [self.view insertSubview:self.topBlur belowSubview:self.navigationBar];
 }
 
