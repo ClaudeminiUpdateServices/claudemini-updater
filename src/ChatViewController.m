@@ -2472,7 +2472,13 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     [items addObject:[GooFanItem itemWithTitle:@"Thêm" icon:[GooFanView glyph:@"dots"] handler:^{ [weakSelf showToolMenu]; }]];
     UIView *stage = self.chatStageView;
     CGPoint anchor = [stage convertPoint:CGPointMake(CGRectGetMidX(self.attachButton.bounds), CGRectGetMidY(self.attachButton.bounds)) fromView:self.attachButton];
-    GooFanView *fan = [[GooFanView alloc] initWithFrame:stage.bounds anchor:anchor items:items];
+    // The buttons open in a straight row just above the message box, in line with it (the first one right above the +).
+    CGRect box = [stage convertRect:self.inputBox.bounds fromView:self.inputBox];
+    CGFloat rowY = CGRectGetMinY(box) - 14 - 22;
+    CGFloat safeTop = 0;
+    if (@available(iOS 11.0, *)) safeTop = self.view.safeAreaInsets.top;
+    if (rowY - 22 < safeTop + 8) rowY = 0;   // no room above the box: the old fan
+    GooFanView *fan = [[GooFanView alloc] initWithFrame:stage.bounds anchor:anchor rowY:rowY items:items];
     fan.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     fan.onClosed = ^{
         ChatViewController *me = weakSelf;

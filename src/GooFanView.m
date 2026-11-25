@@ -120,6 +120,10 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
 }
 
 - (instancetype)initWithFrame:(CGRect)frame anchor:(CGPoint)anchor items:(NSArray<GooFanItem *> *)items {
+    return [self initWithFrame:frame anchor:anchor rowY:0 items:items];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame anchor:(CGPoint)anchor rowY:(CGFloat)rowY items:(NSArray<GooFanItem *> *)items {
     self = [super initWithFrame:frame];
     if (self) {
         _anchor = anchor;
@@ -127,6 +131,8 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         self.backgroundColor = [UIColor clearColor];
         self.accessibilityViewIsModal = YES;
         UIColor *fill = [Theme accent], *ink = [Theme onAccent];
+        // The blobs are one soft body: they share a drop shadow (the necks too) so they read as a single droplet lifting off the box.
+        UIColor *shadow = [UIColor blackColor];
 
         // angles: a fan opening upward from the + (the + sits at the left of the box, so it does not go off the screen)
         NSInteger n = (NSInteger)items.count;
@@ -139,9 +145,15 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         for (NSInteger i = 0; i < n; i++) {
             CGFloat a = start + step * i;
             CGPoint t = CGPointMake(anchor.x + cos(a) * kRadius, anchor.y + sin(a) * kRadius);
+            if (rowY > 0) {   // a straight row along the message box, the first button right above the +
+                CGFloat gap = kBlobR * 2 + 10;
+                CGFloat dir = (anchor.x + gap * (n - 1) + kBlobR + 8 > frame.size.width) ? -1 : 1;   // no room on the right: run to the left
+                t = CGPointMake(anchor.x + dir * gap * i, rowY);
+            }
             [_targets addObject:[NSValue valueWithCGPoint:t]];
             CAShapeLayer *neck = [CAShapeLayer layer];
             neck.fillColor = fill.CGColor;
+            neck.shadowColor = shadow.CGColor; neck.shadowOpacity = 0.0; neck.shadowRadius = 8; neck.shadowOffset = CGSizeMake(0, 4);
             [self.layer addSublayer:neck];
             [_necks addObject:neck];
         }
@@ -152,6 +164,7 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
             b.center = anchor;
             b.layer.cornerRadius = kBlobR;
             b.backgroundColor = fill;
+            b.layer.shadowColor = shadow.CGColor; b.layer.shadowOpacity = 0.30; b.layer.shadowRadius = 9; b.layer.shadowOffset = CGSizeMake(0, 4);
             b.tag = i;
             [b setImage:item.icon forState:UIControlStateNormal];
             b.tintColor = ink;
@@ -165,6 +178,7 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         _fab = [[UIView alloc] initWithFrame:CGRectMake(anchor.x - kFabR, anchor.y - kFabR, kFabR * 2, kFabR * 2)];
         _fab.backgroundColor = fill;
         _fab.layer.cornerRadius = kFabR;
+        _fab.layer.shadowColor = shadow.CGColor; _fab.layer.shadowOpacity = 0.30; _fab.layer.shadowRadius = 9; _fab.layer.shadowOffset = CGSizeMake(0, 4);
         [self addSubview:_fab];
         _fabIcon = [[UIImageView alloc] initWithImage:[GooFanView glyph:@"plus"]];
         _fabIcon.tintColor = ink;
@@ -218,8 +232,9 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         CALayer *layer = self.blobs[i].layer.presentationLayer ?: self.blobs[i].layer;
         CGFloat scale = layer.transform.m11;
         CGFloat r = kBlobR * scale;
-        UIBezierPath *neck = Bridge(fc, fr, layer.position, r, 34);
+        UIBezierPath *neck = Bridge(fc, fr, layer.position, r, 52);
         self.necks[i].path = neck.CGPath;
+        self.necks[i].shadowOpacity = neck ? 0.30 : 0;
     }
     [CATransaction commit];
 }

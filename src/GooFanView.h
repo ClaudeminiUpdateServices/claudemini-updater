@@ -16,6 +16,9 @@
 // `anchor` is the centre of the + in this view's coordinates (the view normally covers the whole chat stage).
 - (instancetype)initWithFrame:(CGRect)frame anchor:(CGPoint)anchor items:(NSArray<GooFanItem *> *)items;
 @property (copy, nonatomic) void (^onClosed)(void);   // after the blobs are back in one (or at once without motion)
+// Same, but the buttons open in a straight row at `rowY` (centre line, in this view's coordinates) starting right above the + and
+// running along the message box; rowY <= 0 keeps the old fan.
+- (instancetype)initWithFrame:(CGRect)frame anchor:(CGPoint)anchor rowY:(CGFloat)rowY items:(NSArray<GooFanItem *> *)items;
 - (void)open;
 - (void)closeWithCompletion:(void (^)(void))completion;
 + (UIImage *)glyph:(NSString *)name;   // photo, camera, file, search, dots, plus

@@ -223,3 +223,8 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 - Blur only, no colour: the wash layers that a blur view paints over the blurred picture (the "tint" of the Dark/Light style) are switched off on the top strips, the glass buttons and the Material 3 message box (TopBlurStripTint keeps the backdrop that blurs and the content view); the extra colour layers I had added (accent tint in the buttons, light fill in the message box) are gone. The thin edge line of the buttons and the box stays.
 - Note: it relies on the layer names inside UIVisualEffectView ("Backdrop"), so a future iOS could bring the wash back; it is re-applied on every layout.
 - Not compiled or run on a device.
+
+[0.8.0 beta 30]
+- Gooey + menu: the buttons now open in a straight row just above the message box, in line with it (first button right above the +, the row runs along the box; to the left when there is no room on the right; the old fan stays as the fallback when there is no room above the box). The first-version fan code was kept.
+- Smoother and nicer: the blobs, the + blob and the necks share a soft drop shadow (the necks only while they exist), the necks reach 52 pt so the droplet stretches longer before it splits; colours stay on the accent / its contrast colour so they follow the skin.
+- Not compiled or run on a device.
