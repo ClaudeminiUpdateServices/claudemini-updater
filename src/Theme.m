@@ -636,9 +636,10 @@ static NSString *WallpaperFileKey(NSInteger index) {
     bar.barStyle = EffectiveDark() ? UIBarStyleBlack : UIBarStyleDefault;   // also decides the status bar text colour
     bar.barTintColor = [self background];
     bar.tintColor = [self accent];
-    bar.translucent = NO;
+    // See-through bar: the page runs under it and a progressive blur (TopBlurView, owned by MiniNavigationController) sits behind the buttons.
+    bar.translucent = YES;
     // A custom shadow image is only honored together with a custom background image.
-    [bar setBackgroundImage:[self imageWithColor:[self background]] forBarMetrics:UIBarMetricsDefault];
+    [bar setBackgroundImage:[[UIImage alloc] init] forBarMetrics:UIBarMetricsDefault];
     bar.shadowImage = [[UIImage alloc] init];
     bar.titleTextAttributes = @{ NSForegroundColorAttributeName: [self text],
                                  NSFontAttributeName: [self serifFontOfSize:[self materialDesign] ? 16 : 18] };   // smaller bar title in Material 3

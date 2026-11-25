@@ -28,7 +28,7 @@ body {
 #messages {
   max-width: 760px;
   margin: 0 auto;
-  padding: calc(20px * var(--uiscale)) calc(16px * var(--uiscale)) calc(36px * var(--uiscale)) calc(16px * var(--uiscale));
+  padding: calc(20px * var(--uiscale) + var(--top, 0px)) calc(16px * var(--uiscale)) calc(36px * var(--uiscale)) calc(16px * var(--uiscale));   /* --top: room under the see-through bar (set by the app) */
   overflow-y: visible;
   touch-action: pan-y;
 }

@@ -23,6 +23,7 @@
 #import "ConfirmPopupViewController.h"
 #import "ComposerViews.h"
 #import "GooFanView.h"
+#import "TopBlurView.h"
 #import "ChoicePopupViewController.h"
 #import "UpdateManager.h"
 #import "KeyTier.h"
@@ -219,6 +220,8 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (assign, nonatomic) CGFloat keyboardOverlap;
 @property (strong, nonatomic) GooFanView *gooFan;
 @property (assign, nonatomic) CGFloat lastDock;
+@property (assign, nonatomic) CGFloat lastTop;
+@property (assign, nonatomic) BOOL lastTopSent;
 @property (assign, nonatomic) BOOL lastDockSent;
 
 @property (strong, nonatomic) NSMutableDictionary *conversation;
@@ -263,9 +266,9 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
     self.chatStageView.backgroundColor = [Theme background];
     [self.view addSubview:self.chatStageView];
 
-    UIBarButtonItem *menuItem = [[UIBarButtonItem alloc] initWithImage:[Theme iconMenu] style:UIBarButtonItemStylePlain target:self action:@selector(historyTapped)];
-    self.navigationItem.rightBarButtonItem =
-        [[UIBarButtonItem alloc] initWithImage:[Theme iconCompose] style:UIBarButtonItemStylePlain target:self action:@selector(newChatTapped)];
+    // The two buttons of the bar are round frosted glass (see TopBlurView.h)
+    UIBarButtonItem *menuItem = [self glassBarItemWithIcon:[Theme iconMenu] label:L(@"history_title") action:@selector(historyTapped)];
+    self.navigationItem.rightBarButtonItem = [self glassBarItemWithIcon:[Theme iconCompose] label:@"Chat mới" action:@selector(newChatTapped)];
 
     self.modelButton = [UIButton buttonWithType:UIButtonTypeCustom];
     self.modelButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
@@ -845,6 +848,21 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
 // `dock` is the height of the floating box (0 in Classic): the page gets that much room at its end, and a soft fade
 // over the last stretch above the box hides the hard edge of the text going under it.
+// The page runs under the see-through bar: it gets that much room above the first message (CSS --top), and the scroll
+// indicator stays below the bar.
+- (void)applyTopInset {
+    CGFloat top = 0;
+    if (@available(iOS 11.0, *)) top = self.view.safeAreaInsets.top;
+    UIScrollView *sv = self.webView.scrollView;
+    UIEdgeInsets ind = sv.scrollIndicatorInsets;
+    if (fabs(ind.top - top) > 0.5) { ind.top = top; sv.scrollIndicatorInsets = ind; }
+    if (fabs(top - self.lastTop) < 0.5 && self.lastTopSent) return;
+    self.lastTop = top;
+    if (!self.webReady) { self.lastTopSent = NO; return; }
+    self.lastTopSent = YES;
+    [self.webView evaluateJavaScript:[NSString stringWithFormat:@"document.documentElement.style.setProperty('--top','%.0fpx');", top] completionHandler:nil];
+}
+
 - (void)applyDockFade:(CGFloat)dock {
     CGFloat h = self.webView.bounds.size.height;
     if (dock > 0 && h > dock + 20) {
@@ -871,6 +889,16 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     if (!self.webReady) { self.lastDockSent = NO; return; }
     self.lastDockSent = YES;
     [self.webView evaluateJavaScript:[NSString stringWithFormat:@"document.documentElement.style.setProperty('--dock','%.0fpx');", dock] completionHandler:nil];
+}
+
+- (UIBarButtonItem *)glassBarItemWithIcon:(UIImage *)icon label:(NSString *)label action:(SEL)action {
+    GlassBarButton *button = [GlassBarButton buttonWithIcon:icon label:label target:self action:action];
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button.widthAnchor constraintEqualToConstant:38].active = YES;
+    [button.heightAnchor constraintEqualToConstant:38].active = YES;
+    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithCustomView:button];
+    item.accessibilityLabel = label;
+    return item;
 }
 
 - (void)unlockWebViewScrolling {
@@ -1167,6 +1195,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     if (material) webBottom = self.keyboardOverlap > 0 ? height - self.keyboardOverlap : height;
     self.webView.frame = CGRectMake(0, 0, width, webBottom);
     [self applyDockFade:material ? MAX(0, webBottom - CGRectGetMinY(self.inputBar.frame)) : 0];
+    [self applyTopInset];
     // Material 3: the message box floats (no panel and no line under it), so the wallpaper or the moving gradient runs
     // behind it down to the bottom edge; the page itself still stops above the box.
     CGRect backdrop = material ? CGRectMake(0, 0, width, height) : self.webView.frame;
@@ -1772,6 +1801,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
         [DiagnosticLog log:@"chat page ready"];
         self.webReady = YES;
         self.lastDockSent = NO;
+        self.lastTopSent = NO;
         [self.view setNeedsLayout];
         [self revealWebView];
         [self pushThemeToWeb];
