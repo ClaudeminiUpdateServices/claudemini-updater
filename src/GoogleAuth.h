@@ -25,6 +25,9 @@ typedef NS_ENUM(NSInteger, GoogleAuthErrorCode) {
 // State (cheap: reads NSUserDefaults only).
 + (BOOL)isSignedIn;
 + (NSString *)accountEmail;          // may be empty
++ (NSString *)accountName;           // the Google display name; may be empty (accounts that signed in before it was requested)
++ (UIImage *)accountAvatar;          // the profile picture (kept on the device); nil when signed out or not fetched yet
++ (void)refreshProfileIfNeeded;      // asks Google once per launch for a missing name or picture; posts kNotifKeyChanged when it changes
 + (NSString *)builtInClientID;      // client ID compiled into the app (empty = ask the person to paste one)
 + (NSString *)savedClientID;       // the pasted/last used one, else the built-in one
 + (NSString *)savedProjectID;
