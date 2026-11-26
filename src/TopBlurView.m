@@ -25,7 +25,7 @@ static UIBlurEffect *CurrentBlur(void) {
 // UIVisualEffectView, and the strength of its blur is set with a paused UIViewPropertyAnimator (fractionComplete 1 = the
 // full blur of the style, 0 = none). The strongest strip is at the top edge and the strength goes down strip by strip.
 // (No colour gradient and no mask: a mask over a blur view makes the blur disappear and leaves only a tint.)
-static const NSInteger kStrips = 28;
+static const NSInteger kStrips = 6;   // few strips: every strip is a live blur of what scrolls behind it, 28 of them made the app crawl
 
 // The strength profile of the web design (PucBloxWeb "pbs"): five blurs of 4, 10, 20, 40 and 80 px, each solid down to a
 // depth and fading out by a deeper one; the blurs add up (as variances), so the strongest sits at the top edge and the

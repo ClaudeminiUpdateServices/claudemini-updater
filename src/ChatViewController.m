@@ -854,6 +854,12 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 - (void)applyTopInset {
     CGFloat top = 0;
     if (@available(iOS 11.0, *)) top = self.view.safeAreaInsets.top;
+    // Do not trust the safe area alone: measure the bottom of the navigation bar in this view as well.
+    UINavigationBar *bar = self.navigationController.navigationBar;
+    if (bar && bar.window && self.view.window) {
+        CGRect barRect = [self.view convertRect:bar.bounds fromView:bar];
+        top = MAX(top, CGRectGetMaxY(barRect));
+    }
     UIScrollView *sv = self.webView.scrollView;
     UIEdgeInsets ind = sv.scrollIndicatorInsets;
     if (fabs(ind.top - top) > 0.5) { ind.top = top; sv.scrollIndicatorInsets = ind; }
@@ -861,30 +867,14 @@ static const CGFloat kDrawerWidthRatio = 0.62;
     self.lastTop = top;
     if (!self.webReady) { self.lastTopSent = NO; return; }
     self.lastTopSent = YES;
+    [DiagnosticLog log:@"chat top inset %.0f", top];
     [self.webView evaluateJavaScript:[NSString stringWithFormat:@"document.documentElement.style.setProperty('--top','%.0fpx');", top] completionHandler:nil];
 }
 
 - (void)applyDockFade:(CGFloat)dock {
-    CGFloat h = self.webView.bounds.size.height;
-    if (dock > 0 && h > dock + 20) {
-        CAGradientLayer *mask = [self.webView.layer.mask isKindOfClass:[CAGradientLayer class]] ? (CAGradientLayer *)self.webView.layer.mask : nil;
-        if (!mask) {
-            mask = [CAGradientLayer layer];
-            mask.colors = @[(id)[UIColor blackColor].CGColor, (id)[UIColor blackColor].CGColor, (id)[UIColor clearColor].CGColor];
-            self.webView.layer.mask = mask;
-        }
-        CGFloat fadeTop = h - dock - 4;           // solid down to just above the box
-        CGFloat fadeEnd = h - dock + 26;          // gone a little way into the box
-        [CATransaction begin];
-        [CATransaction setDisableActions:YES];
-        mask.frame = self.webView.bounds;
-        mask.startPoint = CGPointMake(0.5, 0);
-        mask.endPoint = CGPointMake(0.5, 1);
-        mask.locations = @[@0, @(MAX(0, MIN(1, fadeTop / h))), @(MAX(0, MIN(1, fadeEnd / h)))];
-        [CATransaction commit];
-    } else if (self.webView.layer.mask) {
-        self.webView.layer.mask = nil;
-    }
+    // No mask over the web view any more: a mask forces the whole page through an offscreen pass on every frame of a scroll
+    // (that was a main cause of the lag). The message box is a real blur now, so the text going under it needs no fade.
+    if (self.webView.layer.mask) self.webView.layer.mask = nil;
     if (fabs(dock - self.lastDock) < 0.5 && self.lastDockSent) return;
     self.lastDock = dock;
     if (!self.webReady) { self.lastDockSent = NO; return; }
@@ -1937,6 +1927,9 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    self.lastTopSent = NO;      // a new page starts without the inset variables: send them again
+    self.lastDockSent = NO;
+    [self.view setNeedsLayout];
     [self unlockWebViewScrolling];
     [self applyUIScaleToNativeAndWeb];
 }

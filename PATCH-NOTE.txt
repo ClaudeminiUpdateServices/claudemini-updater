@@ -232,3 +232,9 @@ Sua khoa developer (beta): bo 50 ma skip; chi co 1 mat khau duy nhat. Sai 15 lan
 [0.8.0 beta 31]
 - Gooey + menu colours now match the + of the message box when it is closed: the fill is the colour of the box (opaque Theme surface), a thin Theme border, grey icons (secondary text); the accent only marks an action that is switched on (web search: accent icon and ring). The + blob has the same look and turns into the x. The shadow is a little lighter.
 - Not compiled or run on a device.
+
+[0.8.0 beta 32]
+- Performance: the top blur was 28 live blur views over the scrolling page (the lag in Settings/chat). Now 6 strips (same strength profile). The mask I had put on the whole chat web view (a full offscreen pass per frame) is gone; the message box is a real blur so the text going under it needs no fade.
+- Gooey + menu lag (~15 fps): the blobs and the + blob had shadows without a shadow path (offscreen pass per frame each) and the necks had a shadow whose path changes every frame. Shadows now use fixed ovals as shadowPath and the necks have none.
+- Greeting card under the bar: the inset is now also measured from the bottom of the navigation bar in the chat view (not only the safe area), re-sent after every page load (a reload dropped the CSS variables) and written to the diagnostic log ("chat top inset N").
+- Not compiled or run on a device. If it is still slow: the animated gradient wallpaper behind the blurs makes every blur redraw each frame; tell me and I will calm it while a blur is on screen.

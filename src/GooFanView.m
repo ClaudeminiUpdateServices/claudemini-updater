@@ -156,7 +156,7 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
             [_targets addObject:[NSValue valueWithCGPoint:t]];
             CAShapeLayer *neck = [CAShapeLayer layer];
             neck.fillColor = fill.CGColor;
-            neck.shadowColor = shadow.CGColor; neck.shadowOpacity = 0.0; neck.shadowRadius = 8; neck.shadowOffset = CGSizeMake(0, 4);
+            
             [self.layer addSublayer:neck];
             [_necks addObject:neck];
         }
@@ -167,7 +167,8 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
             b.center = anchor;
             b.layer.cornerRadius = kBlobR;
             b.backgroundColor = fill;
-            b.layer.shadowColor = shadow.CGColor; b.layer.shadowOpacity = 0.22; b.layer.shadowRadius = 9; b.layer.shadowOffset = CGSizeMake(0, 4);
+            b.layer.shadowColor = shadow.CGColor; b.layer.shadowOpacity = 0.22; b.layer.shadowRadius = 8; b.layer.shadowOffset = CGSizeMake(0, 4);
+            b.layer.shadowPath = [UIBezierPath bezierPathWithOvalInRect:b.bounds].CGPath;
             b.tag = i;
             [b setImage:item.icon forState:UIControlStateNormal];
             b.tintColor = ink;
@@ -183,7 +184,8 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         _fab.backgroundColor = fill;
         _fab.layer.cornerRadius = kFabR;
         _fab.layer.borderWidth = 1; _fab.layer.borderColor = edge.CGColor;
-        _fab.layer.shadowColor = shadow.CGColor; _fab.layer.shadowOpacity = 0.30; _fab.layer.shadowRadius = 9; _fab.layer.shadowOffset = CGSizeMake(0, 4);
+        _fab.layer.shadowColor = shadow.CGColor; _fab.layer.shadowOpacity = 0.22; _fab.layer.shadowRadius = 8; _fab.layer.shadowOffset = CGSizeMake(0, 4);
+        _fab.layer.shadowPath = [UIBezierPath bezierPathWithOvalInRect:_fab.bounds].CGPath;   // a path: no offscreen pass per frame
         [self addSubview:_fab];
         _fabIcon = [[UIImageView alloc] initWithImage:[GooFanView glyph:@"plus"]];
         _fabIcon.tintColor = ink;
@@ -239,7 +241,6 @@ static UIBezierPath *Bridge(CGPoint c1, CGFloat r1, CGPoint c2, CGFloat r2, CGFl
         CGFloat r = kBlobR * scale;
         UIBezierPath *neck = Bridge(fc, fr, layer.position, r, 52);
         self.necks[i].path = neck.CGPath;
-        self.necks[i].shadowOpacity = neck ? 0.30 : 0;
     }
     [CATransaction commit];
 }
