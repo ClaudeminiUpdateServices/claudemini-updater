@@ -1,3 +1,8 @@
+ClaudeMini 0.8.0-36 (beta): build fix
+- ChatViewController.m did not import GoogleAuth.h (the 403 recovery uses it): added.
+- GoogleAuth had no +discardAccessToken, which that recovery calls: added (drops the cached access token, keeps the refresh token).
+Not compiled and not tested on a device.
+
 ClaudeMini 0.8.0-35 (beta): Rust core adopted as the base, regressions fixed
 Base
 - The source is now the Rust-based tree (rust/cmcore: ZIP/docx/pptx reading, docx writing, SSE splitting, prompt selection,

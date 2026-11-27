@@ -5,6 +5,7 @@
 #import "Strings.h"
 #import "Theme.h"
 #import "KeyStore.h"
+#import "GoogleAuth.h"
 #import "GeminiClient.h"
 #import "GeminiStream.h"
 #import "ClaudeClient.h"

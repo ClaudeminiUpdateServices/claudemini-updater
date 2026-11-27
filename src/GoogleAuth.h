@@ -47,6 +47,9 @@ typedef NS_ENUM(NSInteger, GoogleAuthErrorCode) {
 // A valid access token, refreshed when needed. Completion runs on the main queue; error is non-nil when token is nil.
 + (void)accessTokenWithCompletion:(void (^)(NSString *token, NSError *error))completion;
 
+// Drops the cached access token so the next request fetches a fresh one (the refresh token stays).
++ (void)discardAccessToken;
+
 // Puts the right credential on a Gemini request: the API key header for a normal key, or the Bearer token (+ project
 // header) when `key` is kGoogleOAuthKeyMarker. For a normal key the completion runs immediately on the calling
 // thread; for Google sign-in it runs on the main queue. `error` is nil on success.

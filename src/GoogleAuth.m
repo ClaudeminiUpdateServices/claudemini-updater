@@ -434,6 +434,10 @@ static NSURL *LargerPictureURL(NSString *picture) {
 
 #pragma mark - Access token
 
++ (void)discardAccessToken {
+    dispatch_async(dispatch_get_main_queue(), ^{ gAccessToken = nil; gAccessExpiry = nil; });
+}
+
 + (void)accessTokenWithCompletion:(void (^)(NSString *, NSError *))completion {
     if (![NSThread isMainThread]) {
         dispatch_async(dispatch_get_main_queue(), ^{ [self accessTokenWithCompletion:completion]; });
