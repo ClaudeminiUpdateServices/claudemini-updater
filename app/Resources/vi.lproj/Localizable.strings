@@ -399,3 +399,5 @@
 /* Thinking line of the chat */
 "thought_for" = "Đã suy nghĩ %d giây";
 "thought_short" = "Đã suy nghĩ";
+"model_denied_switched" = "Model %@ không dùng được với tài khoản này, đã tự chuyển sang %@.";
+"instr_large_counter" = "%lu ký tự · %lu dòng · đọc đầy đủ, chỉ xem phần đầu";

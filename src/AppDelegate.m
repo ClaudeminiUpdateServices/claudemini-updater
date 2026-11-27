@@ -1,3 +1,4 @@
+#import "TimeSync.h"
 #import "AppDelegate.h"
 #import "RootViewController.h"
 #import "ChatViewController.h"
@@ -18,6 +19,8 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     [DiagnosticLog logLaunch];
+    [TimeSync refreshForce:YES];
+    [AppSettings preloadSystemPromptAsync];
     self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     [self applyThemeToWindow];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ [Theme reapplyHelperIconIfNeeded]; });
@@ -86,6 +89,7 @@
 
 // Auto dark mode follows the device clock: check when the app comes back and once a minute while it is open.
 - (void)applicationDidBecomeActive:(UIApplication *)application {
+    [TimeSync refresh];
     [self autoThemeTick];
 }
 

@@ -49,6 +49,11 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - name: Rust target for iOS
+        run: |
+          rustup target add aarch64-apple-ios
+          cargo --version
+
       - name: Install packaging tools (ldid for signing, dpkg for the .deb)
         run: |
           brew install ldid dpkg

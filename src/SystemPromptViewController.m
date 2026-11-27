@@ -12,6 +12,9 @@
 @property (strong, nonatomic) UILabel *placeholderLabel;
 @property (strong, nonatomic) UILabel *counterLabel;
 @property (assign, nonatomic) CGFloat keyboardOverlap;
+@property (assign, nonatomic) BOOL largeMode;          // a very large text: only its beginning is shown, the whole text is kept
+@property (copy, nonatomic) NSString *fullText;
+@property (assign, nonatomic) NSUInteger largeLineCount;
 @end
 
 @implementation SystemPromptViewController
@@ -51,9 +54,9 @@
     self.textView.keyboardAppearance = [Theme keyboardAppearance];
     self.textView.textContainerInset = UIEdgeInsetsMake(12, 10, 12, 10);
     self.textView.delegate = self;
-    NSString *rawInitial = self.perConversation ? (self.initialText ?: @"") : [AppSettings systemPrompt];
-    self.textView.text = [AppSettings cleanedPrompt:rawInitial];
     [self.view addSubview:self.textView];
+    NSString *rawInitial = self.perConversation ? (self.initialText ?: @"") : [AppSettings systemPrompt];
+    [self showPromptText:rawInitial];
 
     self.placeholderLabel = [[UILabel alloc] init];
     self.placeholderLabel.text = L(@"system_prompt_placeholder");
@@ -80,11 +83,50 @@
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
+    NSString *finalText = self.largeMode ? self.fullText : self.textView.text;   // a large text is kept whole, never the preview
     if (self.perConversation) {
-        if (self.onSave) self.onSave([AppSettings cleanedPrompt:self.textView.text]);
+        if (self.onSave) self.onSave([AppSettings cleanedPrompt:finalText]);
     } else {
-        [AppSettings setSystemPrompt:self.textView.text];
+        [AppSettings setSystemPrompt:finalText];
     }
+}
+
+// Up to this many characters the text is edited here as usual. A longer one (a file with hundreds of thousands of lines) is kept
+// whole and used in full, but only its beginning is shown and it cannot be edited here: a text view with millions of
+// characters would freeze the screen. Import another file to replace it.
+static const NSUInteger kEditableLimitChars = 200000;
+static const NSUInteger kPreviewChars = 30000;
+
+static NSUInteger CountLines(NSString *text) {
+    NSData *utf8 = [text dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:YES];
+    const unsigned char *bytes = utf8.bytes;
+    NSUInteger length = utf8.length, lines = length > 0 ? 1 : 0, position = 0;
+    while (position < length) {
+        const unsigned char *hit = memchr(bytes + position, '\n', length - position);
+        if (!hit) break;
+        lines++;
+        position = (NSUInteger)(hit - bytes) + 1;
+    }
+    return lines;
+}
+
+- (void)showPromptText:(NSString *)text {
+    NSString *clean = [AppSettings cleanedPrompt:text];
+    if (clean.length > kEditableLimitChars) {
+        self.largeMode = YES;
+        self.fullText = clean;
+        self.largeLineCount = CountLines(clean);
+        NSRange safe = [clean rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, kPreviewChars)];
+        self.textView.text = [[clean substringWithRange:safe] stringByAppendingString:@"\n\n…"];
+        self.textView.editable = NO;
+    } else {
+        self.largeMode = NO;
+        self.fullText = nil;
+        self.textView.editable = YES;
+        self.textView.text = clean;
+    }
+    self.placeholderLabel.hidden = self.textView.text.length > 0;
+    [self updateCounter];
 }
 
 - (void)viewDidLayoutSubviews {
@@ -106,13 +148,14 @@
 }
 
 - (void)updateCounter {
-    NSUInteger count = self.textView.text.length;
-    if (kMaxSystemPromptChars == 1000000) {
-        self.counterLabel.text = [NSString stringWithFormat:@"%lu / 1 triệu", (unsigned long)count];
-    } else {
-        self.counterLabel.text = [NSString stringWithFormat:@"%lu / %lu", (unsigned long)count, (unsigned long)kMaxSystemPromptChars];
+    if (self.largeMode) {
+        self.counterLabel.text = [NSString stringWithFormat:L(@"instr_large_counter"), (unsigned long)self.fullText.length, (unsigned long)self.largeLineCount];
+        self.counterLabel.textColor = [Theme secondaryText];
+        return;
     }
-    self.counterLabel.textColor = count >= kMaxSystemPromptChars ? [Theme error] : [Theme secondaryText];
+    NSUInteger count = self.textView.text.length;
+    self.counterLabel.text = [NSString stringWithFormat:@"%lu / %lu", (unsigned long)count, (unsigned long)kEditableLimitChars];
+    self.counterLabel.textColor = count >= kEditableLimitChars ? [Theme error] : [Theme secondaryText];
 }
 
 - (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text {
@@ -123,13 +166,13 @@
     NSRange safeRange = NSMakeRange(safeLoc, safeLen);
 
     NSUInteger remainingAfterDelete = current - safeLen;
-    if (remainingAfterDelete >= kMaxSystemPromptChars && text.length > 0) {
+    if (remainingAfterDelete >= kEditableLimitChars && text.length > 0) {
         [self updateCounter];
         return NO;
     }
 
-    if (remainingAfterDelete + text.length > kMaxSystemPromptChars) {
-        NSUInteger allowedLen = kMaxSystemPromptChars - remainingAfterDelete;
+    if (remainingAfterDelete + text.length > kEditableLimitChars) {
+        NSUInteger allowedLen = kEditableLimitChars - remainingAfterDelete;
         NSRange seqRange = [text rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, MIN(allowedLen, text.length))];
         NSString *fitted = [text substringWithRange:seqRange];
         NSString *updated = [currentText stringByReplacingCharactersInRange:safeRange withString:fitted];
@@ -144,9 +187,9 @@
 }
 
 - (void)textViewDidChange:(UITextView *)textView {
-    if (textView.text.length > kMaxSystemPromptChars) {
+    if (textView.text.length > kEditableLimitChars) {
         NSString *cleaned = [AppSettings cleanedPrompt:textView.text];
-        textView.text = cleaned;
+        textView.text = cleaned.length > kEditableLimitChars ? [cleaned substringToIndex:kEditableLimitChars] : cleaned;
     }
     self.placeholderLabel.hidden = textView.text.length > 0;
     [self updateCounter];
@@ -171,11 +214,10 @@
 
 - (void)importFromURL:(NSURL *)url {
     __weak typeof(self) weakSelf = self;
-    [InstructionFile importFromURL:url presenter:self existing:self.textView.text apply:^(NSString *finalText) {
+    [InstructionFile importFromURL:url presenter:self existing:(self.largeMode ? self.fullText : self.textView.text) apply:^(NSString *finalText) {
         SystemPromptViewController *me = weakSelf;
         if (!me) return;
-        me.textView.text = finalText;
-        [me textViewDidChange:me.textView];
+        [me showPromptText:finalText];
         me.textView.selectedRange = NSMakeRange(0, 0);
         [me.textView scrollRangeToVisible:NSMakeRange(0, 0)];
     }];

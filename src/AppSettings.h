@@ -15,6 +15,7 @@ typedef NS_ENUM(NSInteger, AIReasoningLevel) {
 @interface AppSettings : NSObject
 
 + (NSString *)systemPrompt;
++ (void)preloadSystemPromptAsync;   // reads the instruction file in the background (call at launch)
 + (void)setSystemPrompt:(nullable NSString *)prompt;
 + (NSString *)cleanedPrompt:(nullable NSString *)text;
 + (NSString *)systemPromptForQuery:(nullable NSString *)query characterBudget:(NSUInteger)budget;

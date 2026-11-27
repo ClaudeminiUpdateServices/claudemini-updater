@@ -1,3 +1,4 @@
+#include <string.h>
 #import "ClaudeStream.h"
 #import "Strings.h"
 #import "AppSettings.h"
@@ -474,14 +475,21 @@ didReceiveResponse:(NSURLResponse *)response
 #pragma mark - SSE parsing
 
 - (void)drainBufferFinal:(BOOL)final {
-    NSData *newline = [NSData dataWithBytes:"\n" length:1];
-    while (YES) {
-        NSRange range = [self.buffer rangeOfData:newline options:0 range:NSMakeRange(0, self.buffer.length)];
-        if (range.location == NSNotFound) break;
-        NSData *lineData = [self.buffer subdataWithRange:NSMakeRange(0, range.location)];
-        [self.buffer replaceBytesInRange:NSMakeRange(0, range.location + 1) withBytes:NULL length:0];
+    // Walks the buffer once with memchr and drops the consumed part at the end (taking a line off the front of the buffer
+    // for every line made a burst of events cost time proportional to its size squared).
+    NSUInteger start = 0;
+    while (!self.finished) {
+        NSUInteger length = self.buffer.length;
+        if (start >= length) break;
+        const uint8_t *bytes = self.buffer.bytes;
+        const uint8_t *newline = memchr(bytes + start, '\n', length - start);
+        if (!newline) break;
+        NSUInteger end = (NSUInteger)(newline - bytes);
+        NSData *lineData = [NSData dataWithBytes:bytes + start length:end - start];
+        start = end + 1;
         [self processLineData:lineData];
     }
+    if (start > 0 && start <= self.buffer.length) [self.buffer replaceBytesInRange:NSMakeRange(0, start) withBytes:NULL length:0];
     if (final && self.buffer.length > 0) {
         [self processLineData:[self.buffer copy]];
         self.buffer.length = 0;

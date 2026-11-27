@@ -27,13 +27,29 @@ mkdir -p "$APPDIR" "$DIST"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 echo "SDK: $SDK"
 
+# Rust core (rust/cmcore): Office/ZIP text extraction, .docx export, SSE framing, JavaScript string building, instruction
+# selection. The app calls it directly (see src/cmcore.h), so it is required: the build stops here if it cannot be built.
+echo "==> Building the Rust core (iOS arm64)"
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "ERROR: cargo (Rust) was not found. Install Rust (https://rustup.rs) and run this script again." >&2
+  exit 1
+fi
+rustup target add aarch64-apple-ios >/dev/null 2>&1 || true
+IPHONEOS_DEPLOYMENT_TARGET=12.0 cargo build --release --lib --target aarch64-apple-ios --manifest-path rust/cmcore/Cargo.toml
+RUST_LIB="rust/cmcore/target/aarch64-apple-ios/release/libcmcore.a"
+if [ ! -f "$RUST_LIB" ]; then
+  echo "ERROR: $RUST_LIB was not produced" >&2
+  exit 1
+fi
+
 echo "==> Compiling (arm64, iOS 12.0+)"
 xcrun --sdk iphoneos clang \
   -arch arm64 \
   -miphoneos-version-min=12.0 \
   -isysroot "$SDK" \
   -fobjc-arc -fmodules -O2 -Wall -Wno-deprecated-declarations \
-  src/*.m src/*.c \
+  src/*.m \
+  "$RUST_LIB" \
   -framework UIKit -framework Foundation -framework Security -framework AuthenticationServices -framework WebKit -framework ImageIO -framework AVFoundation -framework CoreMedia -framework CoreText -lz \
   -o "$APPDIR/$APP"
 

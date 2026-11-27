@@ -1,14 +1,16 @@
 #import "AppSettings.h"
+#import "CMNative.h"
 #import <limits.h>
 
-const NSUInteger kMaxSystemPromptChars = 1000000;
+// Stored in full (about 1.2 million lines). What goes into one request is chosen from it by the model's reading capacity.
+const NSUInteger kMaxSystemPromptChars = 64000000;
 static NSString *const kSystemPromptKey = @"systemPrompt";
 static NSString *const kAttachmentMemoryKey = @"attachmentMemory";
 static NSString *const kMaxOutputTokensKey = @"maxOutputTokens";
 static NSString *const kContextLimitCharsKey = @"contextLimitChars";
 static NSString *const kReasoningLevelKey = @"reasoningLevel";
 static NSString *const kFastModeKey = @"fastMode";
-static NSString *const kWebSearchKey = @"webSearchEnabled";
+static NSString *const kWebSearchKey = @"webSearchEnabledV2";   // V2: search is on by default (V1 defaulted to off)
 static NSString *const kDailyUsageKey = @"dailyTokenUsage";
 static NSString *const kDailyDateKey = @"dailyTokenUsageDate";
 static NSString *const kDailyBudgetKey = @"dailyTokenBudget";
@@ -23,6 +25,12 @@ static NSString *const kDuoSidebarCollapsedKey = @"duoSidebarCollapsed";
 
 static NSString *gPromptTextCache = nil;
 static BOOL gPromptTextCacheLoaded = NO;
+// The instruction text picked for the last question: the instructions are asked for several times per message (budget checks,
+// the request itself, continuations), so the choice is made once and reused while the text, the question and the budget stay.
+static NSString *gSelPrompt = nil;
+static NSString *gSelQuery = nil;
+static NSUInteger gSelBudget = 0;
+static NSString *gSelResult = nil;
 static NSString *gPromptChunkSource = nil;
 static NSArray<NSDictionary *> *gPromptChunkCache = nil;
 
@@ -104,6 +112,11 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
     return trimmed;
 }
 
++ (void)preloadSystemPromptAsync {
+    // A large instruction file takes a moment to read: do it in the background at launch, not when the first message is sent.
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ (void)[AppSettings systemPrompt]; });
+}
+
 + (NSString *)systemPrompt {
     @synchronized ([AppSettings class]) {
         if (gPromptTextCacheLoaded) return gPromptTextCache ?: @"";
@@ -133,6 +146,8 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
         gPromptTextCacheLoaded = YES;
         gPromptChunkSource = nil;
         gPromptChunkCache = nil;
+        gSelPrompt = nil;
+        gSelResult = nil;
     }
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if (cleaned.length == 0) {
@@ -158,6 +173,17 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
     if (prompt.length > kMaxSystemPromptChars) prompt = [self cleanedPrompt:prompt];
     if (prompt.length == 0 || budget == 0) return @"";
     if (prompt.length <= budget) return prompt;
+
+    @synchronized ([AppSettings class]) {
+        if (gSelResult && gSelPrompt == prompt && gSelBudget == budget && [gSelQuery isEqualToString:(query ?: @"")]) return gSelResult;
+    }
+    NSString *native = CMNativeSelectPrompt(prompt, query, budget);   // Rust (rust/cmcore); nil only for text that is not valid UTF-8
+    if (native) {
+        @synchronized ([AppSettings class]) {
+            gSelPrompt = prompt; gSelQuery = [(query ?: @"") copy]; gSelBudget = budget; gSelResult = native;
+        }
+        return native;
+    }
 
     NSArray<NSDictionary *> *chunks = PromptChunkRecords(prompt);
     if (chunks.count == 0) return @"";
@@ -276,7 +302,10 @@ static NSArray<NSDictionary *> *PromptChunkRecords(NSString *prompt) {
 }
 + (BOOL)fastModeEnabled { return [[NSUserDefaults standardUserDefaults] boolForKey:kFastModeKey]; }
 + (void)setFastModeEnabled:(BOOL)enabled { [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:kFastModeKey]; }
-+ (BOOL)webSearchEnabled { return [[NSUserDefaults standardUserDefaults] boolForKey:kWebSearchKey]; }
++ (BOOL)webSearchEnabled {
+    id stored = [[NSUserDefaults standardUserDefaults] objectForKey:kWebSearchKey];
+    return stored ? [stored boolValue] : YES;
+}
 + (void)setWebSearchEnabled:(BOOL)enabled { [[NSUserDefaults standardUserDefaults] setBool:enabled forKey:kWebSearchKey]; }
 
 + (CGFloat)uiScale {

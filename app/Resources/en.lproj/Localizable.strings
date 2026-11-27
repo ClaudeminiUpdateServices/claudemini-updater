@@ -398,3 +398,5 @@
 /* Thinking line of the chat */
 "thought_for" = "Thought for %d s";
 "thought_short" = "Thought";
+"model_denied_switched" = "Model %@ is not available for this account; switched to %@.";
+"instr_large_counter" = "%lu characters · %lu lines · used in full, only the beginning is shown";

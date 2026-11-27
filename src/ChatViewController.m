@@ -14,6 +14,7 @@
 #import "AppSettings.h"
 #import "ImageViewerViewController.h"
 #import "DiagnosticLog.h"
+#import "TimeSync.h"
 #import "ModelStore.h"
 #import "ConversationStore.h"
 #import "AttachmentStore.h"
@@ -236,6 +237,10 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
 @property (assign, nonatomic) NSInteger streamRetryCount;
 @property (assign, nonatomic) BOOL didRecoverModel404;
 @property (assign, nonatomic) BOOL didFallbackFromFastMode;
+@property (assign, nonatomic) BOOL didRetryGoogleAuth;          // 403 recovery, step 1: fresh Google access token
+@property (copy, nonatomic) NSString *searchBlockedModelId;     // 403 recovery, step 2: this model refused the search tool
+@property (assign, nonatomic) BOOL dropUserProjectHeader;       // 403 recovery, step 3: the optional project ID was refused
+@property (assign, nonatomic) BOOL didSwitchModelFor403;        // 403 recovery, step 4: this model is not allowed for the account
 @property (strong, nonatomic) NSMutableString *streamBuffer;
 @property (strong, nonatomic) NSMutableString *pendingJSDelta;
 @property (strong, nonatomic) dispatch_source_t deltaFlushTimer;
@@ -3114,6 +3119,10 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     self.streamRetryCount = 0;
     self.didRecoverModel404 = NO;
     self.didFallbackFromFastMode = NO;
+    self.didRetryGoogleAuth = NO;
+    self.searchBlockedModelId = nil;
+    self.dropUserProjectHeader = NO;
+    self.didSwitchModelFor403 = NO;
     self.streaming = YES;
     [self updateSendButton];
     [self startDeltaFlushTimer];
@@ -3121,10 +3130,74 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
     [self launchRequestStreaming:YES];
 }
 
+// Real clock, read at the moment each request is built: never a number typed into the prompt.
+static NSString *CMLiveClockDirective(void) {
+    NSDate *now = [TimeSync now];   // the phone clock corrected with the time read from the internet
+    NSTimeZone *zone = [NSTimeZone localTimeZone];
+    NSLocale *locale = [NSLocale localeWithLocaleIdentifier:@"en_US_POSIX"];
+    NSDateFormatter *full = [[NSDateFormatter alloc] init];
+    full.locale = locale;
+    full.timeZone = zone;
+    full.dateFormat = @"EEEE, d MMMM yyyy, HH:mm";   // minute resolution: two requests in the same minute give the same text
+    NSDateFormatter *iso = [[NSDateFormatter alloc] init];
+    iso.locale = locale;
+    iso.timeZone = zone;
+    iso.dateFormat = @"yyyy-MM-dd'T'HH:mmZZZZZ";
+    NSInteger year = [[NSCalendar currentCalendar] component:NSCalendarUnitYear fromDate:now];
+    NSInteger offset = [zone secondsFromGMTForDate:now];
+    return [NSString stringWithFormat:
+            @"\n\n[LIVE CLOCK - read from the user's device when this request was sent]\n"
+            @"Now: %@ (%@, UTC%+ld:%02ld)\nISO 8601: %@\nCurrent year: %ld\n"
+            @"This clock is the truth. Your training data is older than this date: never answer the year, month, day, weekday or time from memory, "
+            @"never say the year is 2024 or any other remembered year, and use this clock for every \"today / now / this year / latest\" calculation. "
+            @"Anything that can change after your training (news, prices, scores, versions, releases, laws, who holds an office, weather) must be checked "
+            @"with the web search tool first, even small things; answer from the results and say plainly when a search did not settle it.",
+            [full stringFromDate:now], zone.name, (long)(offset / 3600), (long)(labs((long)offset) % 3600 / 60),
+            [iso stringFromDate:now], (long)year];
+}
+
+// Models that answered 403 for this account are remembered for a day so the app does not offer them first again.
+static NSString *const kDeniedModelsKey = @"deniedGeminiModels";
+
+- (void)rememberDeniedModel:(NSString *)modelId {
+    if (modelId.length == 0) return;
+    NSMutableDictionary *denied = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:kDeniedModelsKey] mutableCopy] ?: [NSMutableDictionary dictionary];
+    denied[modelId] = @([[NSDate date] timeIntervalSince1970]);
+    [[NSUserDefaults standardUserDefaults] setObject:denied forKey:kDeniedModelsKey];
+}
+
+- (BOOL)isDeniedModel:(NSString *)modelId {
+    NSDictionary *denied = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kDeniedModelsKey];
+    NSNumber *when = denied[modelId];
+    return when && ([[NSDate date] timeIntervalSince1970] - when.doubleValue) < 86400;
+}
+
+// A Gemini model that is available to this account and not known to be refused: the default one first, then any Flash model.
+- (NSString *)workingGeminiModelExcluding:(NSString *)current {
+    NSArray *models = [ModelStore visibleModelsForProvider:AIProviderGemini];
+    NSString *preferred = [ModelStore defaultModelIdForProvider:AIProviderGemini models:models];
+    NSMutableArray *order = [NSMutableArray array];
+    if (preferred.length > 0) [order addObject:preferred];
+    for (NSDictionary *item in models) {
+        NSString *identifier = item[@"id"];
+        if ([identifier.lowercaseString containsString:@"flash"] && ![identifier.lowercaseString containsString:@"image"]) [order addObject:identifier];
+    }
+    for (NSDictionary *item in models) if (item[@"id"]) [order addObject:item[@"id"]];
+    for (NSString *identifier in order) {
+        if (![identifier isEqualToString:current] && ![self isDeniedModel:identifier]) return identifier;
+    }
+    return nil;
+}
+
 - (NSString *)effectiveSystemPrompt {
     NSString *own = self.conversation[@"system"];
     NSString *prompt = ([own isKindOfClass:[NSString class]] && own.length > 0) ? own : [AppSettings systemPrompt];
-    NSUInteger promptBudget = 1500000;
+    // How much of the instructions can go into one request depends on what the model can read: about 2.4 characters per token,
+    // leaving room for the conversation and the answer. A text that fits is sent whole; only a longer one is cut down (by whole
+    // chunks that mention the question), so nothing is cut mid-sentence.
+    NSInteger modelInputTokens = [ModelStore maxInputTokensForModelId:self.model provider:[Provider forModelId:self.model]];
+    NSUInteger promptBudget = modelInputTokens > 0 ? (NSUInteger)((double)modelInputTokens * 2.4) : 1500000;
+    promptBudget = MIN(MAX(promptBudget, (NSUInteger)400000), (NSUInteger)3000000);
     NSString *query = @"";
     NSArray *messages = self.conversation[@"messages"];
     for (NSInteger i = (NSInteger)messages.count - 1; i >= 0; i--) {
@@ -3148,8 +3221,10 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
         selectedPrompt = [selectedPrompt stringByAppendingString:codingDirective];
     }
     if ([AppSettings webSearchEnabled]) {
-        selectedPrompt = [selectedPrompt stringByAppendingString:@"\n\n[WEB SEARCH ENABLED] A real provider-managed web search tool is attached to this request. When the user explicitly asks to search, or the answer depends on current, recent, external, or verifiable information, you MUST invoke the search tool before answering and base factual claims on the returned results. Do not claim to have searched unless the API actually returned results. If the selected model/provider rejects or does not support the tool, state that limitation plainly instead of pretending the search happened." ];
+        selectedPrompt = [selectedPrompt stringByAppendingString:@"\n\n[WEB SEARCH ENABLED] A real provider-managed web search tool is attached to this request and the internet is your live source of truth: whenever a fact could have changed since your training, even a small one (news, prices, versions, releases, people in office, scores, schedules, weather, anything about today / now / latest / this year), search first and answer from the results, without waiting to be asked. When the user explicitly asks to search, or the answer depends on current, recent, external, or verifiable information, you MUST invoke the search tool before answering and base factual claims on the returned results. Do not claim to have searched unless the API actually returned results. If the selected model/provider rejects or does not support the tool, state that limitation plainly instead of pretending the search happened." ];
     }
+    // Last, so everything before it stays identical between requests (the clock is the only part that changes, once a minute).
+    selectedPrompt = [selectedPrompt stringByAppendingString:CMLiveClockDirective()];
     return selectedPrompt;
 }
 
@@ -3195,6 +3270,10 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
         [(id)stream setValue:@(fastEnabled) forKey:@"useFastSpeed"];
     }
     stream.useStreaming = useStreaming;
+    if (provider == AIProviderGemini) {
+        ((GeminiStream *)stream).skipSearchTool = [self.searchBlockedModelId isEqualToString:self.model];
+        ((GeminiStream *)stream).skipUserProject = self.dropUserProjectHeader;
+    }
     self.stream = stream;
     if (!self.streamGeneratedAttachments) self.streamGeneratedAttachments = [NSMutableArray array];
     self.requestStartTime = CFAbsoluteTimeGetCurrent();
@@ -3306,6 +3385,49 @@ didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey, id> 
          [lowerDetail containsString:@"billing"] || [lowerDetail containsString:@"spend limit"] ||
          [lowerDetail containsString:@"spend cap"] || [lowerDetail containsString:@"usage limit"] ||
          [lowerDetail containsString:@"payment"] || [lowerDetail containsString:@"quota_exceeded"]);
+
+    // HTTP 403 from Gemini before any text: try the usual causes in order, each with one quick retry, before showing an error.
+    //   1. the Google access token went stale -> fetch a new one
+    //   2. the model refuses the Google Search tool for this account -> send the request without it
+    //   3. the optional Cloud project ID is refused -> send the request without it
+    //   4. the model is not allowed for this account (preview / paid-only models) -> switch to one that works
+    if (currentProvider == AIProviderGemini && status == 403 && partial.length == 0 && self.streamGeneratedAttachments.count == 0) {
+        BOOL usingGoogle = [KeyStore geminiUsesGoogleAccount];
+        NSString *reasonLog = nil;
+        if (usingGoogle && !self.didRetryGoogleAuth) {
+            self.didRetryGoogleAuth = YES;
+            [GoogleAuth discardAccessToken];
+            reasonLog = @"fresh Google token";
+        } else if ([AppSettings webSearchEnabled] && ![self.searchBlockedModelId isEqualToString:self.model]) {
+            self.searchBlockedModelId = self.model;
+            reasonLog = @"without the search tool";
+        } else if (usingGoogle && [GoogleAuth savedProjectID].length > 0 && !self.dropUserProjectHeader) {
+            self.dropUserProjectHeader = YES;
+            reasonLog = @"without the project header";
+        } else if (!self.didSwitchModelFor403) {
+            NSString *replacement = [self workingGeminiModelExcluding:self.model];
+            if (replacement.length > 0) {
+                self.didSwitchModelFor403 = YES;
+                NSString *deniedName = self.model;
+                [self rememberDeniedModel:deniedName];
+                self.model = replacement;
+                [ModelStore setSelectedModelId:replacement];
+                self.conversation[@"model"] = replacement;
+                [self updateModelTitle];
+                self.searchBlockedModelId = nil;
+                [self callJS:@"notice" args:@[[NSString stringWithFormat:L(@"model_denied_switched"), deniedName, replacement]]];
+                reasonLog = [NSString stringWithFormat:@"switched model %@ -> %@", deniedName, replacement];
+            }
+        }
+        if (reasonLog) {
+            self.stream = nil;
+            [DiagnosticLog log:@"HTTP 403 (%@): retrying %@", detail.length > 160 ? [detail substringToIndex:160] : (detail ?: @"-"), reasonLog];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                if (self.streaming && self.stream == nil) [self launchRequestStreaming:self.attemptIsStreaming];
+            });
+            return;
+        }
+    }
 
     BOOL wasFastRequest = self.stream && [AppSettings fastModeEnabled] && !self.didFallbackFromFastMode;
     NSString *fastErrorText = lowerDetail;

@@ -1,9 +1,20 @@
 /* Skin variables. Defaults = the original Claude look; the app injects the chosen skin in <style id="themevars"> after this sheet. */
 :root {
+  /* --- MÀU GIAO DIỆN GỐC (GIỮ NGUYÊN) --- */
   --bg: #FAF9F5; --text: #29261B; --sec: #6F6B5E; --border: #E3E0D5; --sel: #F0EEE6; --bubble: #F0EEE6;
-  --accent: #C96442; --onaccent: #FFFFFF; --link: #C96442; --card: rgba(255,255,255,.9); --code-bg: #F6F4EC;
+  --accent: #C96442; --onaccent: #FFFFFF; --link: #C96442; --card: rgba(255,255,255,.9);
+  
+  /* --- MÀU CODE GITHUB LIGHT MODE (ĐÃ SỬA) --- */
+  --code-bg: #F6F8FA;  /* Nền code xám nhạt */
+  --hl-kw: #CF222E;    /* Đỏ: từ khóa */
+  --hl-str: #0A3069;   /* Xanh đậm: chuỗi */
+  --hl-com: #6E7781;   /* Xám: comment */
+  --hl-num: #0550AE;   /* Xanh dương: số */
+  --hl-title: #8250DF; /* Tím: tên hàm, class */
+  --hl-attr: #953800;  /* Cam: thuộc tính */
+  
+  /* --- CÁC BIẾN CÒN LẠI (GIỮ NGUYÊN) --- */
   --err-bg: #FCEDEA; --err-border: #EBC4BB; --err-text: #8F2F1D; --toast-bg: #29261B; --toast-fg: #FFFFFF;
-  --hl-kw: #A5472B; --hl-str: #3F7D58; --hl-com: #8A8677; --hl-num: #2F6B8C; --hl-title: #7B4FA2; --hl-attr: #B0731A;
   --uiscale: 1;
   --serif: Georgia, "Times New Roman", serif;
   --ui-font: -apple-system, "Helvetica Neue", Helvetica, sans-serif;
@@ -28,7 +39,8 @@ body {
 #messages {
   max-width: 760px;
   margin: 0 auto;
-  padding: calc(20px * var(--uiscale) + var(--top, 0px)) calc(16px * var(--uiscale)) calc(36px * var(--uiscale)) calc(16px * var(--uiscale));   /* --top: room under the see-through bar (set by the app) */
+  /* --top = height of the see-through bar (set by the app) */
+  padding: calc(20px * var(--uiscale) + var(--top, 0px)) calc(16px * var(--uiscale)) calc(36px * var(--uiscale)) calc(16px * var(--uiscale));   
   overflow-y: visible;
   touch-action: pan-y;
 }
@@ -227,9 +239,9 @@ body {
 
 /* empty state */
 .empty {
-  /* Pinned to the top of the page in pixels: the keyboard shrinks the page, and the greeting must not move. */
   position: fixed;
-  top: calc(29px + var(--top, 0px));   /* below the see-through bar */
+  /* Tự động canh sát mép dưới thanh đen (biến --top) cộng thêm 10px cho thoáng */
+  top: calc(var(--top, 0px) + 10px) !important; 
   left: 0;
   right: 0;
   margin: 0 auto;
@@ -237,6 +249,9 @@ body {
   max-width: 728px;
   box-sizing: border-box;
   text-align: center;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
   -webkit-transition: opacity .28s ease, -webkit-transform .32s cubic-bezier(.2,.8,.2,1);
@@ -244,6 +259,15 @@ body {
   -webkit-animation: emptyIn .38s ease-out backwards;
   animation: emptyIn .38s ease-out backwards;
 }
+
+/* <-- THÊM MỚI: Đảm bảo các div con bên trong cũng mất nền -->
+.empty > div, .empty > div > div {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
 /* The history drawer slides the whole chat sideways; the greeting card shrinks back a little while it moves. */
 html.drawer-open .empty { opacity: .5; -webkit-transform: scale(.94) translateZ(0); transform: scale(.94) translateZ(0); }
 @-webkit-keyframes emptyIn { from { opacity: 0; -webkit-transform: translateY(10px) scale(.97); } to { opacity: 1; -webkit-transform: none; } }
@@ -357,7 +381,7 @@ html.is-empty, html.is-empty body { overflow: hidden; height: 100%; overscroll-b
   margin: .9em 0;
   background: var(--code-bg);
   border: 1px solid var(--border);
-  border-radius: calc(10px * var(--uiscale));
+  border-radius: 6px;        /* Bo góc nhỏ giống GitHub */
   overflow: hidden;
 }
 .md .codehead {
@@ -369,7 +393,7 @@ html.is-empty, html.is-empty body { overflow: hidden; height: 100%; overscroll-b
   align-items: center;
   padding: calc(5px * var(--uiscale)) calc(8px * var(--uiscale)) calc(5px * var(--uiscale)) calc(12px * var(--uiscale));
   border-bottom: 1px solid var(--border);
-  background: var(--sel);
+  background: var(--code-bg);       /* Đã đổi nền thanh header đồng màu với code */
   font-family: var(--ui-font);
 }
 .md .codehead .lang { font-size: calc(12px * var(--uiscale)); color: var(--sec); text-transform: lowercase; }

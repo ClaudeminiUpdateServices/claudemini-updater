@@ -4,7 +4,7 @@
 #import "Strings.h"
 #import "SystemPromptViewController.h"
 
-static const unsigned long long kMaxInstructionFileBytes = 16ull * 1024 * 1024;
+static const unsigned long long kMaxInstructionFileBytes = 160ull * 1024 * 1024;   // about 1.2 million lines of source text
 
 @implementation InstructionFile
 
@@ -30,9 +30,12 @@ static const unsigned long long kMaxInstructionFileBytes = 16ull * 1024 * 1024;
     if (!text) { if (reason) *reason = L(@"instr_err_read"); return nil; }
 
     if ([text hasPrefix:@"﻿"]) text = [text substringFromIndex:1];
-    text = [text stringByReplacingOccurrencesOfString:@"\r\n" withString:@"\n"];
-    text = [text stringByReplacingOccurrencesOfString:@"\r" withString:@"\n"];
-    text = [text stringByReplacingOccurrencesOfString:@"\0" withString:@""];
+    // Each of these walks the whole text, so only do it when there is something to change (a file of millions of characters).
+    if ([text rangeOfString:@"\r"].location != NSNotFound) {
+        text = [text stringByReplacingOccurrencesOfString:@"\r\n" withString:@"\n"];
+        text = [text stringByReplacingOccurrencesOfString:@"\r" withString:@"\n"];
+    }
+    if ([text rangeOfString:@"\0"].location != NSNotFound) text = [text stringByReplacingOccurrencesOfString:@"\0" withString:@""];
     text = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     if (text.length == 0) { if (reason) *reason = L(@"instr_err_empty"); return nil; }
     return text;
@@ -46,8 +49,24 @@ static const unsigned long long kMaxInstructionFileBytes = 16ull * 1024 * 1024;
 
 + (void)importFromURL:(NSURL *)url presenter:(UIViewController *)presenter existing:(NSString *)existing apply:(void (^)(NSString *))apply {
     if (!url || !presenter || !apply) return;
-    NSString *reason = nil;
-    NSString *text = [self textFromURL:url reason:&reason];
+    // Reading and cleaning a big file takes a moment: do it in the background with a spinner, so the screen does not freeze.
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    spinner.color = [UIColor grayColor];
+    spinner.center = CGPointMake(CGRectGetMidX(presenter.view.bounds), CGRectGetMidY(presenter.view.bounds));
+    [presenter.view addSubview:spinner];
+    [spinner startAnimating];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        NSString *reason = nil;
+        NSString *text = [self textFromURL:url reason:&reason];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [spinner stopAnimating];
+            [spinner removeFromSuperview];
+            [self continueImportWithText:text reason:reason presenter:presenter existing:existing apply:apply];
+        });
+    });
+}
+
++ (void)continueImportWithText:(NSString *)text reason:(NSString *)reason presenter:(UIViewController *)presenter existing:(NSString *)existing apply:(void (^)(NSString *))apply {
     if (!text) {
         [self showMessage:reason ?: L(@"instr_err_read") title:L(@"instr_import_title") from:presenter];
         return;
