@@ -1,4 +1,5 @@
 #import "Theme.h"
+#import "TopBlurView.h"
 #import "Strings.h"
 #import "AppSettings.h"
 #import <ImageIO/ImageIO.h>
@@ -637,9 +638,9 @@ static NSString *WallpaperFileKey(NSInteger index) {
     bar.barTintColor = [self background];
     bar.tintColor = [self accent];
     // See-through bar: the page runs under it and a progressive blur (TopBlurView, owned by MiniNavigationController) sits behind the buttons.
-    bar.translucent = YES;
+    bar.translucent = CMBlurChrome();
     // A custom shadow image is only honored together with a custom background image.
-    [bar setBackgroundImage:[[UIImage alloc] init] forBarMetrics:UIBarMetricsDefault];
+    [bar setBackgroundImage:(CMBlurChrome() ? [[UIImage alloc] init] : [self imageWithColor:[self background]]) forBarMetrics:UIBarMetricsDefault];
     bar.shadowImage = [[UIImage alloc] init];
     bar.titleTextAttributes = @{ NSForegroundColorAttributeName: [self text],
                                  NSFontAttributeName: [self serifFontOfSize:[self materialDesign] ? 16 : 18] };   // smaller bar title in Material 3

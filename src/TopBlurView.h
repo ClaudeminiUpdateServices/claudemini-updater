@@ -4,6 +4,10 @@
 // at the top edge and fading away downwards (no colour band, only blur). The glass round buttons for the bar sit here too.
 
 // Switches off the colour wash of a blur view so that only the blur stays.
+// Master switch. NO = the plain themed bar and the colour fade (as before beta 26); YES = the see-through blur bar, the glass
+// buttons and the blur message box. All the blur code stays; this only decides whether it is used.
+static inline BOOL CMBlurChrome(void) { return NO; }
+
 FOUNDATION_EXPORT void TopBlurStripTint(UIVisualEffectView *view);
 
 @interface TopBlurView : UIView

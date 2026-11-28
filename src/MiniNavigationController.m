@@ -78,7 +78,7 @@
     [super viewDidLayoutSubviews];
     // The blur covers the status bar and the bar, and goes on for a little more so that it can fade out below the buttons.
     CGFloat barBottom = CGRectGetMaxY(self.navigationBar.frame);
-    self.topBlur.hidden = self.navigationBarHidden;
+    self.topBlur.hidden = self.navigationBarHidden || !CMBlurChrome();
     self.topBlur.frame = CGRectMake(0, 0, self.view.bounds.size.width, barBottom + 48);
     [self.view insertSubview:self.topBlur belowSubview:self.navigationBar];
 }
@@ -92,10 +92,10 @@
         under = [NSSet setWithArray:@[@"ChatViewController", @"HistoryViewController", @"SettingsViewController", @"GoogleAccountViewController",
                                       @"AppearanceViewController", @"SoftwareUpdateViewController", @"ModelPickerViewController", @"AccentColorViewController"]];
     });
-    if ([under containsObject:NSStringFromClass([controller class])]) {
+    if (CMBlurChrome() && [under containsObject:NSStringFromClass([controller class])]) {
         controller.edgesForExtendedLayout = UIRectEdgeAll;
     } else {
-        controller.edgesForExtendedLayout = UIRectEdgeLeft | UIRectEdgeRight | UIRectEdgeBottom;
+        controller.edgesForExtendedLayout = UIRectEdgeLeft | UIRectEdgeRight | UIRectEdgeBottom;   // opaque bar: the page starts below it
     }
 }
 

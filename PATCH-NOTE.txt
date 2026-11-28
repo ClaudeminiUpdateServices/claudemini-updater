@@ -1,3 +1,12 @@
+ClaudeMini 0.8.0-37 (beta): plain top bar and colour fade again
+- The top bar is the plain themed bar again (opaque, the colour of the page) with the normal round-less icons; the page starts
+  below it (--top = 0).
+- The message box is the solid floating box again, and the page fades out over the last stretch above it with the colour
+  gradient (mask), as before beta 26.
+- The blur code (TopBlurView, glass buttons, blur box) is still in the project behind one switch, CMBlurChrome() in
+  TopBlurView.h (NO now); setting it to YES brings the blur design back.
+Not compiled and not tested on a device.
+
 ClaudeMini 0.8.0-36 (beta): build fix
 - ChatViewController.m did not import GoogleAuth.h (the 403 recovery uses it): added.
 - GoogleAuth had no +discardAccessToken, which that recovery calls: added (drops the cached access token, keeps the refresh token).

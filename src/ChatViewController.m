@@ -274,8 +274,15 @@ static UIImage *DrawChevronRightIconImage(CGFloat size, UIColor *color) {
     [self.view addSubview:self.chatStageView];
 
     // The two buttons of the bar are round frosted glass (see TopBlurView.h)
-    UIBarButtonItem *menuItem = [self glassBarItemWithIcon:[Theme iconMenu] label:L(@"history_title") action:@selector(historyTapped)];
-    self.navigationItem.rightBarButtonItem = [self glassBarItemWithIcon:[Theme iconCompose] label:@"Chat mới" action:@selector(newChatTapped)];
+    UIBarButtonItem *menuItem;
+    if (CMBlurChrome()) {
+        menuItem = [self glassBarItemWithIcon:[Theme iconMenu] label:L(@"history_title") action:@selector(historyTapped)];
+        self.navigationItem.rightBarButtonItem = [self glassBarItemWithIcon:[Theme iconCompose] label:@"Chat mới" action:@selector(newChatTapped)];
+    } else {
+        menuItem = [[UIBarButtonItem alloc] initWithImage:[Theme iconMenu] style:UIBarButtonItemStylePlain target:self action:@selector(historyTapped)];
+        self.navigationItem.rightBarButtonItem =
+            [[UIBarButtonItem alloc] initWithImage:[Theme iconCompose] style:UIBarButtonItemStylePlain target:self action:@selector(newChatTapped)];
+    }
 
     self.modelButton = [UIButton buttonWithType:UIButtonTypeCustom];
     self.modelButton.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
@@ -859,6 +866,15 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 // indicator stays below the bar.
 - (void)applyTopInset {
     CGFloat top = 0;
+    if (!CMBlurChrome()) {   // opaque bar: the page already starts below it
+        if (!self.lastTopSent || fabs(self.lastTop) > 0.5) {
+            self.lastTop = 0;
+            if (!self.webReady) { self.lastTopSent = NO; return; }
+            self.lastTopSent = YES;
+            [self.webView evaluateJavaScript:@"document.documentElement.style.setProperty('--top','0px');" completionHandler:nil];
+        }
+        return;
+    }
     if (@available(iOS 11.0, *)) top = self.view.safeAreaInsets.top;
     // Do not trust the safe area alone: measure the bottom of the navigation bar in this view as well.
     UINavigationBar *bar = self.navigationController.navigationBar;
@@ -880,7 +896,30 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 - (void)applyDockFade:(CGFloat)dock {
     // No mask over the web view any more: a mask forces the whole page through an offscreen pass on every frame of a scroll
     // (that was a main cause of the lag). The message box is a real blur now, so the text going under it needs no fade.
-    if (self.webView.layer.mask) self.webView.layer.mask = nil;
+    if (!CMBlurChrome()) {
+        // The colour fade: the page fades out over the last stretch above the box (a gradient mask), as before beta 26.
+        CGFloat h = self.webView.bounds.size.height;
+        if (dock > 0 && h > dock + 20) {
+            CAGradientLayer *mask = [self.webView.layer.mask isKindOfClass:[CAGradientLayer class]] ? (CAGradientLayer *)self.webView.layer.mask : nil;
+            if (!mask) {
+                mask = [CAGradientLayer layer];
+                mask.colors = @[(id)[UIColor blackColor].CGColor, (id)[UIColor blackColor].CGColor, (id)[UIColor clearColor].CGColor];
+                self.webView.layer.mask = mask;
+            }
+            CGFloat fadeTop = h - dock - 4, fadeEnd = h - dock + 26;
+            [CATransaction begin];
+            [CATransaction setDisableActions:YES];
+            mask.frame = self.webView.bounds;
+            mask.startPoint = CGPointMake(0.5, 0);
+            mask.endPoint = CGPointMake(0.5, 1);
+            mask.locations = @[@0, @(MAX(0, MIN(1, fadeTop / h))), @(MAX(0, MIN(1, fadeEnd / h)))];
+            [CATransaction commit];
+        } else if (self.webView.layer.mask) {
+            self.webView.layer.mask = nil;
+        }
+    } else if (self.webView.layer.mask) {
+        self.webView.layer.mask = nil;
+    }
     if (fabs(dock - self.lastDock) < 0.5 && self.lastDockSent) return;
     self.lastDock = dock;
     if (!self.webReady) { self.lastDockSent = NO; return; }
@@ -890,7 +929,7 @@ static const CGFloat kDrawerWidthRatio = 0.62;
 
 // Material 3: blur behind the message box, a light tint over it; Classic: the plain solid surface.
 - (void)styleInputBoxGlass {
-    BOOL material = [Material active];
+    BOOL material = [Material active] && CMBlurChrome();
     self.inputBlur.hidden = !material;
     self.inputBlur.effect = [UIBlurEffect effectWithStyle:[Theme darkMode] ? UIBlurEffectStyleDark : UIBlurEffectStyleLight];
     self.inputBlur.frame = self.inputBox.bounds;

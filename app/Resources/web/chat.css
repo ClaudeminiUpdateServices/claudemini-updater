@@ -240,8 +240,8 @@ body {
 /* empty state */
 .empty {
   position: fixed;
-  /* Tự động canh sát mép dưới thanh đen (biến --top) cộng thêm 10px cho thoáng */
-  top: calc(var(--top, 0px) + 10px) !important; 
+  /* below the bar: --top is 0 with the plain bar, the bar height with the see-through one */
+  top: calc(29px + var(--top, 0px)) !important; 
   left: 0;
   right: 0;
   margin: 0 auto;
